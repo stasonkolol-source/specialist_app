@@ -415,6 +415,21 @@ describe('S17 my responses', () => {
     expect(screen.getByRole('article', { name: /смеситель.*На проверке/ })).toBeTruthy();
   });
 
+  it('says the places ran out while the response was checked, not that the client declined', async () => {
+    withJobs((it) => {
+      it.responses = myResponsesFixture().map((item) =>
+        item.status === 'not_selected'
+          ? { ...item, status: 'declined' as const, job_full: true }
+          : item,
+      );
+    });
+    startApp('/jobs/responses');
+
+    const full = await screen.findByRole('article', { name: /Течёт смеситель/ });
+    expect(within(full).getByText('Мест не осталось')).toBeTruthy();
+    expect(within(full).queryByText('Клиент отклонил')).toBeNull();
+  });
+
   it('says the job was closed, not that another performer was chosen', async () => {
     withJobs((it) => {
       it.responses = myResponsesFixture().map((item) =>

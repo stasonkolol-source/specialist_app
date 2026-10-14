@@ -228,6 +228,7 @@ export const getJobsRespondResponseMock = (
     faker.date.past().toISOString().slice(0, 19) + 'Z',
     null,
   ]),
+  job_full: faker.datatype.boolean(),
   job: {
     id: faker.string.uuid(),
     title: faker.string.alpha({ length: { min: 10, max: 20 } }),
@@ -1221,6 +1222,7 @@ export const getJobsGetResponseResponseMock = (
     faker.date.past().toISOString().slice(0, 19) + 'Z',
     null,
   ]),
+  job_full: faker.datatype.boolean(),
   job: {
     id: faker.string.uuid(),
     title: faker.string.alpha({ length: { min: 10, max: 20 } }),
@@ -1282,6 +1284,7 @@ export const getJobsReviseResponseResponseMock = (
     faker.date.past().toISOString().slice(0, 19) + 'Z',
     null,
   ]),
+  job_full: faker.datatype.boolean(),
   job: {
     id: faker.string.uuid(),
     title: faker.string.alpha({ length: { min: 10, max: 20 } }),
@@ -1343,6 +1346,7 @@ export const getJobsWithdrawResponseResponseMock = (
     faker.date.past().toISOString().slice(0, 19) + 'Z',
     null,
   ]),
+  job_full: faker.datatype.boolean(),
   job: {
     id: faker.string.uuid(),
     title: faker.string.alpha({ length: { min: 10, max: 20 } }),
@@ -1750,6 +1754,7 @@ export const getJobsListMyResponsesResponseMock = (
       faker.date.past().toISOString().slice(0, 19) + 'Z',
       null,
     ]),
+    job_full: faker.datatype.boolean(),
     job: {
       id: faker.string.uuid(),
       title: faker.string.alpha({ length: { min: 10, max: 20 } }),

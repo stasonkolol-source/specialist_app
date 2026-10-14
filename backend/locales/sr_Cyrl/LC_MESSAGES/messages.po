@@ -951,6 +951,12 @@ msgstr "Захтев је затворен без избора"
 msgid "notifications.response_job_closed.body"
 msgstr "Захтев „{title}“. Хвала на понуди — у листи има других захтева у близини."
 
+msgid "notifications.response_job_full.title"
+msgstr "На захтеву више нема места"
+
+msgid "notifications.response_job_full.body"
+msgstr "Захтев „{title}“. Док смо проверавали понуду, места на захтеву су попуњена — у листи има других захтева у близини."
+
 msgid "notifications.response_declined.title"
 msgstr "Клијент је одбио понуду"
 

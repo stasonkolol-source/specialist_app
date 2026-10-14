@@ -152,6 +152,11 @@ TITLED: Mapping[NotificationType, str] = MappingProxyType(
 JOB_CLOSED = "job_closed"
 """`reason` у `response.not_selected`: заявку закрыли — свой заголовок и текст, без «выбрал
 другого» (`notifications.response_job_closed.*`)."""
+NOT_SELECTED_REASONS: Mapping[str, str] = MappingProxyType(
+    {JOB_CLOSED: "response_job_closed", "job_full": "response_job_full"}
+)
+"""`reason` у `response.not_selected` → свой шаблон: заявку закрыли (MU-11) или мест не осталось,
+пока отклик проверяли (B4, `notifications.response_job_full.*`)."""
 COMPLETED_BY = frozenset({"client", "auto"})
 """Как завершилась сделка (`by` у `deal.completed`): клиент подтвердил или прошло 3 дня."""
 
@@ -266,11 +271,9 @@ class GettextNotificationRenderer:
             )
         if type_ in TITLED:
             key, title = TITLED[type_], _short(params.get("title"))
-            if (
-                type_ is NotificationType.RESPONSE_NOT_SELECTED
-                and params.get("reason") == JOB_CLOSED
-            ):
-                key = "response_job_closed"  # клиент закрыл или удалил заявку (MU-11)
+            reason = params.get("reason")
+            if type_ is NotificationType.RESPONSE_NOT_SELECTED and reason in NOT_SELECTED_REASONS:
+                key = NOT_SELECTED_REASONS[str(reason)]  # заявку закрыли или мест не осталось
             return RenderedText(
                 title=self._t(f"notifications.{key}.title", locale),
                 body=self._t(f"notifications.{key}.body", locale, title=title),

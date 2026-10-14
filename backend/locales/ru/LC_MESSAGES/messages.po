@@ -951,6 +951,12 @@ msgstr "Заявка закрыта без выбора"
 msgid "notifications.response_job_closed.body"
 msgstr "Заявка «{title}». Спасибо за отклик — в ленте есть другие заявки рядом."
 
+msgid "notifications.response_job_full.title"
+msgstr "Мест на заявке не осталось"
+
+msgid "notifications.response_job_full.body"
+msgstr "Заявка «{title}». Пока отклик проверяли, места на заявке закончились — в ленте есть другие заявки рядом."
+
 msgid "notifications.response_declined.title"
 msgstr "Клиент отклонил отклик"
 

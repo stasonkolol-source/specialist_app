@@ -19,6 +19,7 @@ from typing import Final, NewType
 from uuid import UUID
 
 from app.modules.jobs.domain.response import (
+    JOB_FULL,
     Offer,
     Response,
     ResponseId,
@@ -521,10 +522,10 @@ class Job(VersionedAggregate):
             template_id=template_id,
             created_at=now,
             updated_at=now,
+            placed=False,  # место — после проверки (clear_response, B4)
             _changed=True,
         )
         self.responses.append(response)
-        self.responses_count += 1
         self.updated_at = now
         self._record(
             ResponseSubmitted(
@@ -563,8 +564,9 @@ class Job(VersionedAggregate):
     ) -> Response:
         """Исполнитель отозвал свой отклик, пока клиент не решил: место освобождается."""
         response = self._performer_response(response_id, performer_id)
+        held = response.holds_place
         response.withdraw(now=now)
-        self.responses_count = max(0, self.responses_count - 1)
+        self._release_place(held=held)
         self.updated_at = now
         self._record(
             ResponseWithdrawn(
@@ -589,21 +591,35 @@ class Job(VersionedAggregate):
         )
         if response is None:
             return False
+        held = response.holds_place
         if withdrawn:
             response.withdraw(now=now)
         else:
             response.job_closed(now=now)
-        self.responses_count = max(0, self.responses_count - 1)
+        self._release_place(held=held)
         self.updated_at = now
         return True
 
     def clear_response(
         self, response_id: ResponseId, *, revision: int | None, now: datetime
     ) -> bool:
-        """Модерация пропустила текст отклика: клиент его видит. Нет отклика, другая редакция
-        или уже решено — ничего, False."""
+        """Модерация пропустила текст отклика: клиент его видит. Первая пройденная проверка
+        занимает место (B4); мест уже нет — отклик «отклонён» без клиента, причина `job_full`
+        (ResponseDeclined → исполнителю уведомление). Вызывается под блокировкой строки заявки:
+        два одобрения одновременно не займут больше мест, чем есть. Нет отклика, другая
+        редакция или уже решено — ничего, False."""
         response = self._find_response(response_id)
-        if response is None or not response.clear(revision=revision, now=now):
+        if response is None or response.review is not ResponseReview.PENDING:
+            return False
+        if revision is not None and revision != response.revision:
+            return False
+        if response.is_active and not response.placed:
+            if self.responses_count >= self.max_responses:
+                self._no_room(response, now=now)
+                return True
+            response.take_place(now=now)
+            self.responses_count += 1
+        if not response.clear(revision=revision, now=now):
             return False
         self.updated_at = now
         return True
@@ -682,8 +698,9 @@ class Job(VersionedAggregate):
             raise ResponseNotActiveError(
                 response_id=response.id, response_status=response.status.value
             )
+        held = response.holds_place
         response.decline(now=now)
-        self.responses_count = max(0, self.responses_count - 1)
+        self._release_place(held=held)
         self.updated_at = now
         self._record(
             ResponseDeclined(
@@ -714,7 +731,15 @@ class Job(VersionedAggregate):
                 and response.review is not ResponseReview.BLOCKED
             ):
                 response.reconsider(now=now)
-        self.responses_count = sum(1 for response in self.responses if response.is_active)
+        self.responses_count = sum(1 for response in self.responses if response.holds_place)
+        # проверку прошёл, пока шла сделка, а места ещё не занимал — занимает сейчас, если есть
+        for response in self.responses:
+            if response.is_active and not response.placed and response.visible_to_client:
+                if self.responses_count < self.max_responses:
+                    response.take_place(now=now)
+                    self.responses_count += 1
+                else:
+                    self._no_room(response, now=now)
         self.selected_response_id = None
         self._move(
             JobStatus.PUBLISHED, by=None, kind=ActorKind.SYSTEM, now=now, reason="deal_cancelled"
@@ -738,6 +763,25 @@ class Job(VersionedAggregate):
     def pull_history(self) -> list[tuple[StatusChange[JobStatus], ActorKind]]:
         history, self._history = self._history, []
         return history
+
+    def _release_place(self, *, held: bool) -> None:
+        """Отклик, который занимал место, его освободил; не прошедший проверку места не держал."""
+        if held:
+            self.responses_count = max(0, self.responses_count - 1)
+
+    def _no_room(self, response: Response, *, now: datetime) -> None:
+        response.no_room(now=now)
+        self.updated_at = now
+        self._record(
+            ResponseDeclined(
+                job_id=self.id,
+                response_id=response.id,
+                performer_id=response.performer_id,
+                client_id=self.client_id,
+                reason=JOB_FULL,
+                occurred_at=now,
+            )
+        )
 
     def _find_response(self, response_id: ResponseId) -> Response | None:
         return next((r for r in self.responses if r.id == response_id), None)

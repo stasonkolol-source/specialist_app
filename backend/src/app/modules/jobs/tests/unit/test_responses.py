@@ -1,5 +1,6 @@
 """Отклик (DEVELOPMENT_PLAN 5.4; ARCHITECTURE §7.9): подагрегат заявки — места, один отклик от
-исполнителя, правка и отзыв, проверка модерацией, закрытие заявки, предложение."""
+исполнителя, правка и отзыв, проверка модерацией, закрытие заявки, предложение. Место отклик
+занимает после проверки (B4)."""
 
 from datetime import timedelta
 
@@ -27,6 +28,7 @@ from app.modules.jobs.errors import (
 )
 from app.modules.jobs.tests.builders import CLIENT, ELECTRICAL, NOW, published, submitted
 from app.platform.contracts.events.jobs import (
+    ResponseDeclined,
     ResponseSubmitted,
     ResponseUpdated,
     ResponseWithdrawn,
@@ -52,7 +54,14 @@ def respond(job: Job, who: UserId | None = None) -> Response:
     )
 
 
-def test_response_takes_a_place_and_waits_for_the_check() -> None:
+def placed(job: Job, who: UserId | None = None) -> Response:
+    """Отклик, прошедший проверку: он и занимает место (B4)."""
+    response = respond(job, who)
+    assert job.clear_response(response.id, revision=response.revision, now=LATER)
+    return response
+
+
+def test_response_waits_for_the_check_and_takes_a_place_after_it() -> None:
     job = published()
 
     first = respond(job)
@@ -63,7 +72,9 @@ def test_response_takes_a_place_and_waits_for_the_check() -> None:
         ResponseReview.PENDING,
         1,
     )
-    assert job.responses_count == 2
+    assert job.responses_count == 0  # на проверке место не занято: «0 из 5»
+    assert job.clear_response(first.id, revision=1, now=LATER)
+    assert (first.placed, job.responses_count) == (True, 1)
     events = job.pull_events()
     assert [type(e) for e in events] == [ResponseSubmitted, ResponseSubmitted]
     assert [e.is_first for e in events if isinstance(e, ResponseSubmitted)] == [True, False]
@@ -80,13 +91,13 @@ def test_responding_refuses_own_repeated_full_and_not_open() -> None:
     job = published()
     job.max_responses = 2
     someone = performer()
-    respond(job, someone)
+    placed(job, someone)
 
     with pytest.raises(OwnJobResponseError):
         respond(job, CLIENT)
     with pytest.raises(AlreadyRespondedError):
         respond(job, someone)
-    respond(job)
+    placed(job)
     with pytest.raises(JobFullError) as full:
         respond(job)
     assert full.value.params["limit"] == 2
@@ -97,7 +108,7 @@ def test_responding_refuses_own_repeated_full_and_not_open() -> None:
 def test_withdrawn_response_frees_the_place_and_is_not_repeated() -> None:
     job = published()
     someone = performer()
-    response = respond(job, someone)
+    response = placed(job, someone)
     job.pull_events()
 
     job.withdraw_response(response.id, performer_id=someone, now=LATER)
@@ -133,15 +144,19 @@ def test_revised_response_is_checked_again() -> None:
 
 
 def test_blocked_response_is_hidden_and_keeps_its_place() -> None:
-    """MU-10: отказ модерации скрывает отклик до исправления — место за ним, статус прежний."""
+    """MU-10: отказ модерации скрывает отклик до исправления — статус прежний; место за ним, если
+    он его уже занимал (B4: новый отклик, не прошедший проверку, места не держит)."""
     job = published()
     response = respond(job)
+    seen = placed(job)
+    job.revise_response(seen.id, performer_id=seen.performer_id, offer=offer("+381"), now=LATER)
 
     assert job.block_response(response.id, now=LATER)
+    assert job.block_response(seen.id, now=LATER)
 
     assert (response.review, response.status) == (ResponseReview.BLOCKED, ResponseStatus.SUBMITTED)
     assert not response.visible_to_client
-    assert job.responses_count == 1
+    assert (response.placed, seen.placed, job.responses_count) == (False, True, 1)
     assert not job.block_response(response.id, now=LATER)
     assert not job.clear_response(response.id, revision=None, now=LATER)
     assert not job.clear_response(ResponseId(new_id()), revision=None, now=LATER)
@@ -165,10 +180,10 @@ def test_rejected_response_is_fixed_and_sent_again_on_its_place() -> None:
         2,
         ResponseStatus.SUBMITTED,
     )
-    assert job.responses_count == 1
+    assert job.responses_count == 0  # проверку ещё не прошёл — места не держит (B4)
     assert [type(e) for e in job.pull_events()] == [ResponseUpdated]
     assert job.clear_response(response.id, revision=2, now=LATER)
-    assert response.visible_to_client
+    assert (response.visible_to_client, job.responses_count) == (True, 1)
     with pytest.raises(AlreadyRespondedError):
         respond(job, someone)
 
@@ -203,8 +218,8 @@ def test_blocking_frees_the_place_of_an_active_response(
     освобождается; заблокированному — «не выбран», заблокировавшему исполнителю — «отозван»."""
     job = published()
     someone = performer()
-    response = respond(job, someone)
-    respond(job)
+    response = placed(job, someone)
+    placed(job)
     job.pull_events()
 
     assert job.release_blocked_response(someone, withdrawn=withdrawn, now=LATER)
@@ -228,6 +243,56 @@ def test_closed_job_does_not_select_active_responses() -> None:
     assert (active.status, active.decided_at) == (ResponseStatus.NOT_SELECTED, LATER)
     assert withdrawn.status is ResponseStatus.WITHDRAWN
     assert job.responses_count == 0
+
+
+def test_check_passed_when_the_job_is_full_declines_the_response() -> None:
+    """B4: ночью отклики ждут модератора, места не держат; одобрение занимает место, а когда мест
+    уже нет — отклик «отклонён» без клиента (`job_full`), исполнителю уходит уведомление."""
+    job = published()
+    job.max_responses = 2
+    waiting = [respond(job) for _ in range(3)]  # все трое на проверке: «0 из 2», заявка открыта
+    job.pull_events()
+
+    for response in waiting:
+        assert job.clear_response(response.id, revision=1, now=LATER)
+
+    first, second, late = waiting
+    assert (first.placed, second.placed, job.responses_count) == (True, True, 2)
+    assert (late.status, late.placed, late.job_full) == (ResponseStatus.DECLINED, False, True)
+    assert (late.review, late.decided_at) == (ResponseReview.PENDING, LATER)  # клиент не видит
+    [declined] = job.pull_events()
+    assert isinstance(declined, ResponseDeclined)
+    assert (declined.response_id, declined.reason) == (late.id, "job_full")
+    assert not job.clear_response(late.id, revision=1, now=LATER)  # повтор проверки — ничего
+    with pytest.raises(JobFullError):
+        respond(job)
+
+
+def test_place_freed_while_checking_goes_to_the_next_check() -> None:
+    job = published()
+    job.max_responses = 1
+    first = placed(job)
+    waiting = respond(job)
+
+    job.withdraw_response(first.id, performer_id=first.performer_id, now=LATER)
+    assert job.clear_response(waiting.id, revision=1, now=LATER)
+
+    assert (waiting.status, waiting.placed, job.responses_count) == (
+        ResponseStatus.SUBMITTED,
+        True,
+        1,
+    )
+
+
+def test_unchecked_response_withdrawn_does_not_free_a_place_it_never_had() -> None:
+    job = published()
+    seen = placed(job)
+    someone = performer()
+    waiting = respond(job, someone)
+
+    job.withdraw_response(waiting.id, performer_id=someone, now=LATER)
+
+    assert (seen.placed, job.responses_count) == (True, 1)
 
 
 def test_response_change_marks_only_that_response_for_saving() -> None:

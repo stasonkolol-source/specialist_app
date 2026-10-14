@@ -44,7 +44,8 @@ notifications стоит над контентными модулями (ARCHITE
 - `notifications.notify_job_closed` — JobClosed: исполнителям, чьи отклики ждали решения, «Заявка
   закрыта без выбора» (`response.not_selected` с `reason: job_closed`, MU-11), кнопка — S17.
 - `notifications.notify_response_declined` — ResponseDeclined: исполнителю «Клиент отклонил
-  отклик» — только в центре S42, без бота.
+  отклик» — только в центре S42, без бота; мест не осталось, пока отклик проверяли
+  (`reason: job_full`, B4), — «Мест на заявке не осталось» в бот и центр, кнопка — S17.
 - `notifications.notify_deal_proposed` — DealProposed: второй стороне «Клиент (исполнитель)
   предлагает договориться» и кнопка к условиям, пока предложение ждёт (6.3b).
 - `notifications.notify_deal_agreed` — DealAgreed «Договориться» из чата: предложившему —
@@ -278,6 +279,9 @@ FIX_SECTIONS = {
 JOB, RESPONSE, DISPUTE = "job", "response", "dispute"
 JOB_CLOSED = "job_closed"
 """`reason` у `response.not_selected`: отклик не выбран, потому что клиент закрыл заявку."""
+JOB_FULL = "job_full"
+"""`reason` у ResponseDeclined и `response.not_selected`: пока отклик проверяли, места на заявке
+закончились (B4) — клиент его не видел и не отклонял."""
 AGREED, PROPOSED, COMPLETED = "agreed", "proposed", "completed"
 FROM_CHAT = "chat"
 """DealOrigin «Договориться» из чата: о подтверждении предложившему пишет `deal.agreed`; выбор
@@ -796,10 +800,23 @@ async def notify_response_declined(
     event: ResponseDeclined, notify: FromDishka[Notify], jobs: FromDishka[JobsApi]
 ) -> None:
     """Клиент отклонил отклик: исполнителю — строка в центре S42 (в бот не пишем: исход, а не
-    повод действовать) и ссылка на «Мои отклики», где карточка покажет «Клиент отклонил»."""
+    повод действовать) и ссылка на «Мои отклики», где карточка покажет «Клиент отклонил».
+    Мест не осталось, пока отклик проверяли (B4): клиент тут ни при чём — «Мест на заявке не
+    осталось» и в бот: отклик никто не увидит, время откликнуться на другие заявки."""
     job = await jobs.job_brief(event.job_id)
     if job is None:
         return  # заявку удалили
+    if event.reason == JOB_FULL:
+        await notify(
+            NotifyCommand(
+                user_id=event.performer_id,
+                type=NotificationType.RESPONSE_NOT_SELECTED,
+                dedupe_key=f"response.job_full:{event.response_id}",
+                params={"title": job.title, "reason": JOB_FULL},
+                link=RESPONSES_LINK,
+            )
+        )
+        return
     await notify(
         NotifyCommand(
             user_id=event.performer_id,

@@ -279,6 +279,8 @@ class ResponseRow(TimestampsMixin, SoftDeleteMixin, Base):
     revision: Mapped[int] = mapped_column(Integer, server_default=text("1"))
     viewed_at: Mapped[datetime | None]
     decided_at: Mapped[datetime | None]
+    placed: Mapped[bool] = mapped_column(Boolean, server_default=text("true"))
+    """Занял место на заявке — прошёл проверку (jobs_0012, B4); отклики до неё — true."""
 
     __table_args__ = (
         CheckConstraint(f"char_length(message) BETWEEN 1 AND {MAX_MESSAGE}", name="message_length"),

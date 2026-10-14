@@ -309,6 +309,7 @@
       "not_selected": "Izabran je drugi",
       "job_closed": "Zahtev je zatvoren bez izbora",
       "declined": "Klijent je odbio",
+      "job_full": "Nema više mesta",
       "withdrawn": "Povukli ste ponudu"
     },
     "acceptedLead": "Izabrani ste.",

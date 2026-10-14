@@ -25,5 +25,7 @@ export interface MyResponseOut {
   created_at: string;
   updated_at: string;
   decided_at: string | null;
+  /** declined без клиента: пока отклик проверяли, места на заявке закончились */
+  job_full: boolean;
   job: ResponseJobOut;
 }

@@ -1,7 +1,8 @@
 """Отклики (DEVELOPMENT_PLAN 5.4) через API и конвейер модерации: исполнитель откликается на
 опубликованную заявку, текст уходит на проверку — клиент видит отклик после неё (чистый — сразу,
 с контактами — после решения модератора); на свою, закрытую и полную заявку — 409 со своим кодом;
-десять параллельных откликов на пять мест дают ровно пять; правка отклика увеличивает версию
+место отклик занимает после проверки (B4): десять параллельных одобрений на пять мест дают ровно
+пять, остальные — «мест не осталось» (`job_full`); правка отклика увеличивает версию
 заявки; суточный лимит по уровню доверия — 429 на своей границе; «Мои отклики» с группами и
 квотой дня; удалённый аккаунт отзывает свои отклики; три отклика за окно — одно уведомление
 клиенту «Новых откликов: 3», о первом отклике на заявку — через полминуты, а не пять минут.
@@ -24,6 +25,7 @@ from sqlalchemy.ext.asyncio import AsyncEngine, AsyncSession
 
 from app.entrypoints._wiring import make_worker_container, module_routers
 from app.entrypoints.seeds import load_city_seeds
+from app.modules.jobs.api import JobsApi
 from app.modules.jobs.application.use_cases.forget_client_jobs import (
     ForgetClientJobs,
     ForgetClientJobsCommand,
@@ -41,6 +43,7 @@ from app.modules.moderation.domain.cases import EntityType
 from app.modules.moderation.domain.pipeline import Route, Routing
 from app.modules.moderation.errors import CaseSupersededError
 from app.platform.contracts.events.moderation import ModerationDecision
+from app.platform.db.port import UnitOfWork
 from app.platform.kernel.ids import UserId, new_id
 from app.platform.ratelimit import Rate
 from app.platform.settings import Settings
@@ -192,6 +195,20 @@ class World:
         body: dict[str, Any] = reply.json()
         return body
 
+    async def approve(self, response_id: str) -> None:
+        """Проверка пройдена — как решение модерации (`JobsApi.approve_response`): отклик занимает
+        место или, если мест уже нет, «отклонён» с `job_full` (B4)."""
+        async with self.app.container() as request:
+            uow, jobs = await request.get(UnitOfWork), await request.get(JobsApi)
+            async with uow:
+                await jobs.approve_response(UUID(response_id), version=None)
+
+    async def placed(self, performer: UserId, job_id: UUID, **kwargs: Any) -> dict[str, Any]:
+        """Отклик, прошедший проверку: он занимает место на заявке."""
+        response = await self.responded(performer, job_id, **kwargs)
+        await self.approve(response["id"])
+        return response
+
     async def template(self, performer: UserId, title: str, **offer: Any) -> httpx.Response:
         body = {
             "title": title,
@@ -284,12 +301,13 @@ async def test_clean_response_is_shown_to_the_owner_after_the_check(
         "amount": {"amount": 350_000, "currency": "RSD"},
     }
     assert response["job"]["id"] == str(job_id)
-    assert response["job"]["responses_count"] == 1
+    assert response["job"]["responses_count"] == 0  # на проверке место не занято (B4)
     assert await world.owner_list(client, job_id) == []  # на проверке — клиенту не видно
 
     routing = await auto_check(worker, performer, response["id"])
 
     assert routing.route is Route.PUBLISH
+    assert (await world.job_row(job_id))[1] == 1
     [listed] = await world.owner_list(client, job_id)
     assert listed["id"] == response["id"]
     assert listed["performer"]["display_name"] == "Марко П."
@@ -326,9 +344,9 @@ async def test_response_with_contacts_waits_for_a_moderator(
         )
     mine = await world.app.client.get(f"{API}/me/responses", headers=world.headers(performer))
     [blocked] = mine.json()["items"]
-    # MU-10: скрыт до исправления — активен, место за ним
+    # MU-10: скрыт до исправления — активен; место займёт, когда пройдёт проверку (B4)
     assert (blocked["review"], blocked["status"]) == ("blocked", "submitted")
-    assert await world.job_row(job_id) == (3, 1)
+    assert await world.job_row(job_id) == (3, 0)
     assert await world.owner_list(client, job_id) == []
 
     # «Исправьте и отправьте снова»: правка уходит на проверку и после неё видна клиенту;
@@ -367,7 +385,7 @@ async def test_blocking_frees_the_places_of_responses_between_the_two(
     )
     job_id = await world.job(client)
     for performer in (blocked, blocker, other):
-        await world.responded(performer, job_id)
+        await world.placed(performer, job_id)
     assert (await world.job_row(job_id))[1] == 3
 
     put = await world.app.client.put(f"{API}/me/blocks/{blocked}", headers=world.headers(client))
@@ -440,6 +458,7 @@ async def test_responding_refuses_own_full_closed_and_repeated(world: World) -> 
 
     own = await world.respond(client, job_id)
     first = await world.respond(performer, job_id)
+    await world.approve(first.json()["id"])  # место занимает прошедший проверку (B4)
     again = await world.respond(performer, job_id)
     late = await world.respond(await world.user(), job_id)
     unpublished = await world.respond(performer, hidden)
@@ -463,28 +482,43 @@ async def test_responding_refuses_own_full_closed_and_repeated(world: World) -> 
     assert guest.status_code == 401
 
 
-async def test_ten_parallel_responses_take_exactly_five_places(world: World) -> None:
+async def test_ten_parallel_approvals_take_exactly_five_places(world: World) -> None:
+    """B4: ночью десять откликов ждут проверки и места не держат — заявка открыта для всех.
+    Одобрения идут параллельно под блокировкой строки заявки: ровно пять занимают места,
+    остальные пять — «отклонён», `job_full` (клиент их не видел); новый отклик — 409."""
     client = await world.user()
     job_id = await world.job(client)
     performers = [await world.user() for _ in range(10)]
 
     replies = await asyncio.gather(*(world.respond(p, job_id) for p in performers))
 
-    codes = sorted(reply.status_code for reply in replies)
-    assert codes == [201] * 5 + [409] * 5
-    assert {r.json()["code"] for r in replies if r.status_code == 409} == {"job_full"}
+    assert sorted(reply.status_code for reply in replies) == [201] * 10
     version, count = await world.job_row(job_id)
-    assert (count, version) == (5, 6)  # каждый отклик — новая версия заявки
-    stored = await world.scalar("SELECT count(*) FROM jobs.responses WHERE job_id = :id", id=job_id)
-    assert stored == 5
+    assert (count, version) == (0, 11)  # каждый отклик — новая версия заявки
+    await asyncio.gather(*(world.approve(reply.json()["id"]) for reply in replies))
+
+    assert (await world.job_row(job_id))[1] == 5
+    rows = await world.scalar(
+        "SELECT json_agg(json_build_array(status, placed)) FROM jobs.responses WHERE job_id = :id",
+        id=job_id,
+    )
+    assert sorted(map(tuple, rows)) == [("declined", False)] * 5 + [("submitted", True)] * 5
+    full = [
+        (await world.app.client.get(f"{API}/me/responses", headers=world.headers(p))).json()
+        for p in performers
+    ]
+    assert sorted(item["items"][0]["job_full"] for item in full) == [False] * 5 + [True] * 5
+    assert len(await world.owner_list(client, job_id)) == 5
+    late = await world.respond(await world.user(), job_id)
+    assert (late.status_code, late.json()["code"]) == (409, "job_full")
 
 
 @pytest.mark.authz
 async def test_revising_and_withdrawing_bump_the_job_version(world: World) -> None:
     client, performer = await world.user(), await world.user()
     job_id = await world.job(client)
-    response = await world.responded(performer, job_id)
-    assert await world.job_row(job_id) == (2, 1)
+    response = await world.placed(performer, job_id)
+    assert await world.job_row(job_id) == (3, 1)  # отклик и одобрение — по версии заявки
     headers = world.headers(performer)
 
     revised = await world.app.client.patch(
@@ -498,7 +532,7 @@ async def test_revising_and_withdrawing_bump_the_job_version(world: World) -> No
         {"type": "negotiable", "amount": None},
         "pending",
     )
-    assert await world.job_row(job_id) == (3, 1)  # правка отклика — новая версия заявки
+    assert await world.job_row(job_id) == (4, 1)  # правка отклика — новая версия заявки
     shown = await world.app.client.get(f"{API}/responses/{response['id']}", headers=headers)
     assert (shown.status_code, shown.json()["message"]) == (200, revised.json()["message"])
     assert shown.json()["job"]["id"] == str(job_id)
@@ -506,7 +540,7 @@ async def test_revising_and_withdrawing_bump_the_job_version(world: World) -> No
         f"{API}/responses/{response['id']}/withdraw", headers=headers
     )
     assert (withdrawn.status_code, withdrawn.json()["status"]) == (200, "withdrawn")
-    assert await world.job_row(job_id) == (4, 0)
+    assert await world.job_row(job_id) == (5, 0)
     twice = await world.app.client.post(
         f"{API}/responses/{response['id']}/withdraw", headers=headers
     )

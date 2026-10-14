@@ -140,13 +140,16 @@ class ResponseAccepted(DomainEvent):
 
 @dataclass(frozen=True, slots=True, kw_only=True)
 class ResponseDeclined(DomainEvent):
-    """Клиент отклонил отклик (6.1a): место на заявке освободилось."""
+    """Клиент отклонил отклик (6.1a): место на заявке освободилось. `reason` — `job_full`:
+    отклонил не клиент — пока отклик проверяли, места на заявке закончились (B4); клиент его
+    не видел. Поле аддитивное: у событий до B4 его нет."""
 
     event_type = "jobs.ResponseDeclined"
     job_id: UUID
     response_id: UUID
     performer_id: UserId
     client_id: UserId
+    reason: str | None = None
 
 
 @dataclass(frozen=True, slots=True, kw_only=True)

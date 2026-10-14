@@ -453,6 +453,9 @@ export const JobsRespondResponse = zod
     created_at: zod.iso.datetime({ offset: true }),
     updated_at: zod.iso.datetime({ offset: true }),
     decided_at: zod.union([zod.iso.datetime({ offset: true }), zod.null()]),
+    job_full: zod
+      .boolean()
+      .describe('declined без клиента: пока отклик проверяли, места на заявке закончились'),
     job: zod
       .object({
         id: zod.uuid(),
@@ -2265,6 +2268,9 @@ export const JobsGetResponseResponse = zod
     created_at: zod.iso.datetime({ offset: true }),
     updated_at: zod.iso.datetime({ offset: true }),
     decided_at: zod.union([zod.iso.datetime({ offset: true }), zod.null()]),
+    job_full: zod
+      .boolean()
+      .describe('declined без клиента: пока отклик проверяли, места на заявке закончились'),
     job: zod
       .object({
         id: zod.uuid(),
@@ -2375,6 +2381,9 @@ export const JobsReviseResponseResponse = zod
     created_at: zod.iso.datetime({ offset: true }),
     updated_at: zod.iso.datetime({ offset: true }),
     decided_at: zod.union([zod.iso.datetime({ offset: true }), zod.null()]),
+    job_full: zod
+      .boolean()
+      .describe('declined без клиента: пока отклик проверяли, места на заявке закончились'),
     job: zod
       .object({
         id: zod.uuid(),
@@ -2461,6 +2470,9 @@ export const JobsWithdrawResponseResponse = zod
     created_at: zod.iso.datetime({ offset: true }),
     updated_at: zod.iso.datetime({ offset: true }),
     decided_at: zod.union([zod.iso.datetime({ offset: true }), zod.null()]),
+    job_full: zod
+      .boolean()
+      .describe('declined без клиента: пока отклик проверяли, места на заявке закончились'),
     job: zod
       .object({
         id: zod.uuid(),
@@ -3018,6 +3030,9 @@ export const JobsListMyResponsesResponse = zod.object({
         created_at: zod.iso.datetime({ offset: true }),
         updated_at: zod.iso.datetime({ offset: true }),
         decided_at: zod.union([zod.iso.datetime({ offset: true }), zod.null()]),
+        job_full: zod
+          .boolean()
+          .describe('declined без клиента: пока отклик проверяли, места на заявке закончились'),
         job: zod
           .object({
             id: zod.uuid(),

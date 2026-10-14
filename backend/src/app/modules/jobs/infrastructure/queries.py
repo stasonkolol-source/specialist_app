@@ -529,6 +529,7 @@ _RESPONSE = (
     _R.created_at,
     _R.updated_at,
     _R.decided_at,
+    _R.placed,
 )
 _RESPONSE_JOB = (
     _J.id.label("job_id"),
@@ -572,6 +573,7 @@ def _my_response(row: RowMapping) -> MyResponse:
         created_at=row["created_at"],
         updated_at=row["updated_at"],
         decided_at=row["decided_at"],
+        job_full=row["status"] == ResponseStatus.DECLINED.value and not row["placed"],
         job=ResponseJob(
             id=JobId(row["job_id"]),
             title=row["title"],
