@@ -271,8 +271,8 @@ def test_check_passed_when_the_job_is_full_declines_the_response() -> None:
 def test_place_freed_while_checking_goes_to_the_next_check() -> None:
     job = published()
     job.max_responses = 1
-    first = placed(job)
-    waiting = respond(job)
+    first, waiting = respond(job), respond(job)  # оба на проверке: заявка открыта
+    assert job.clear_response(first.id, revision=1, now=LATER)
 
     job.withdraw_response(first.id, performer_id=first.performer_id, now=LATER)
     assert job.clear_response(waiting.id, revision=1, now=LATER)

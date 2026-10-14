@@ -611,6 +611,8 @@ class Job(VersionedAggregate):
         response = self._find_response(response_id)
         if response is None or response.review is not ResponseReview.PENDING:
             return False
+        if response.job_full:  # мест не осталось — клиент его так и не увидит
+            return False
         if revision is not None and revision != response.revision:
             return False
         if response.is_active and not response.placed:
