@@ -542,6 +542,22 @@ def test_closed_job_is_not_called_another_choice(
     assert [url for _, url in opens(buttons)] == [f"{MINI_APP}?startapp=m_responses"]
 
 
+def test_job_full_is_not_called_a_client_decision(renderer: GettextNotificationRenderer) -> None:
+    """B4: пока отклик проверяли, места закончились — клиент его не видел и не отклонял."""
+    rendered, buttons = renderer.telegram(
+        NotificationType.RESPONSE_NOT_SELECTED,
+        {"title": "Люстра", "reason": "job_full"},
+        RESPONSES_LINK,
+        Locale.RU,
+    )
+
+    assert rendered == (
+        "<b>Мест на заявке не осталось</b>\nЗаявка «Люстра». Пока отклик проверяли, места на"
+        " заявке закончились — в ленте есть другие заявки рядом."
+    )
+    assert [url for _, url in opens(buttons)] == [f"{MINI_APP}?startapp=m_responses"]
+
+
 @pytest.mark.parametrize(
     ("params", "body"),
     [
