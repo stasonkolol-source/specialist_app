@@ -490,6 +490,7 @@ export const getViewsGetDealCardResponseMock = (
   ]),
   counterpart: {
     role: faker.helpers.arrayElement(['client', 'performer'] as const),
+    user_id: faker.helpers.arrayElement([faker.string.uuid(), null]),
     display_name: faker.string.alpha({ length: { min: 10, max: 20 } }),
     profile_id: faker.helpers.arrayElement([faker.string.uuid(), null]),
     avatar: faker.helpers.arrayElement([

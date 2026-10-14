@@ -49,6 +49,8 @@ class DealView:
     version: int
     created_at: datetime
     updated_at: datetime
+    completion_snoozed_until: datetime | None = None
+    """«Ещё нет» под «Работа выполнена?»: спросить снова тогда (Deal.completion_due_at)."""
 
     def role_of(self, user_id: UserId) -> DealRole | None:
         if user_id == self.client_id:

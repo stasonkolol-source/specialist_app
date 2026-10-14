@@ -152,12 +152,19 @@ def _due(sweep: DealSweep, now: datetime) -> ColumnElement[bool]:
             _D.scheduled_at <= now + REMINDER_LEAD,
         )
     if sweep is DealSweep.PROMPT:
+        # перенесли «Ещё нет» — срок переноса, иначе — по времени работы или договорённости
         return and_(
             agreed,
             _D.completion_prompted_at.is_(None),
             or_(
-                _D.scheduled_at <= now - PROMPT_DELAY,
-                and_(_D.scheduled_at.is_(None), _D.agreed_at <= now - PROMPT_WITHOUT_TIME),
+                _D.completion_snoozed_until <= now,
+                and_(
+                    _D.completion_snoozed_until.is_(None),
+                    or_(
+                        _D.scheduled_at <= now - PROMPT_DELAY,
+                        and_(_D.scheduled_at.is_(None), _D.agreed_at <= now - PROMPT_WITHOUT_TIME),
+                    ),
+                ),
             ),
         )
     if sweep is DealSweep.AUTO_COMPLETE:
@@ -197,6 +204,7 @@ def _view(row: RowMapping) -> DealView:
         version=row["version"],
         created_at=row["created_at"],
         updated_at=row["updated_at"],
+        completion_snoozed_until=row["completion_snoozed_until"],
     )
 
 

@@ -10,6 +10,8 @@ import type { DealCounterpartOutRole } from './dealCounterpartOutRole.ts';
 export interface DealCounterpartOut {
   /** Кто вторая сторона для меня */
   role: DealCounterpartOutRole;
+  /** Аккаунт второй стороны — «Просит предоплату → Пожаловаться» (S26); удалён — пусто */
+  user_id: string | null;
   /** Аккаунт удалён — пусто */
   display_name: string;
   /** Профиль специалиста исполнителя (S08) */

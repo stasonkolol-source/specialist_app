@@ -1,9 +1,11 @@
 // S52 «Проблема со сделкой» (DEVELOPMENT_PLAN 6.1c, 6.2): спор по идущей сделке. Вход — «Есть
 // проблема» S26, «Есть проблема» под «Работа выполнена?» в боте и «Ответить» уведомления о споре
 // (deep link `p_` — сразу сюда, без S26). Данные — карточка сделки (BFF), в ней последний спор.
-// - Спора нет (или прежний отозван), сделка идёт — форма по артборду: «Что случилось?» (пять
-//   вариантов строками группы), «Опишите, что произошло», фото и скриншоты (media `dispute`,
-//   приватный бакет), памятка «… получит уведомление и 48 часов на ответ»; MainButton «Отправить».
+// - Спора нет (или прежний отозван), сделка идёт — форма по артборду: «Что случилось?» (варианты
+//   строками группы), «Опишите, что произошло», фото и скриншоты (media `dispute`, приватный
+//   бакет), памятка «… получит уведомление и 48 часов на ответ»; MainButton «Отправить». «Не
+//   пришёл» — только когда сделку уже не отменить (работу отметили, MU-8): иначе это путь «Отменить
+//   и выбрать другого» шторки «Есть проблема» S26 — без 48 ч ожидания.
 // - Спор идёт — статус («Ждём ответа», «Есть ответ», «Нет ответа»), что сообщили и фото, ответ
 //   второй стороны. Второй стороне — срок и форма ответа (MainButton «Ответить»; после 48 ч тоже
 //   можно), открывшему — «Отозвать спор» с подтверждением: сделка снова идёт.
@@ -60,8 +62,10 @@ import { useStepButton } from '../shared/flow.ts';
 import { dealPath, jobIdOf } from '../shared/paths.ts';
 import { mediaTransport } from '../shared/uploads.ts';
 
-/** Варианты артборда по порядку; «Ущерб имуществу» (`damage`) — только в API. */
-const KINDS: readonly DisputeKind[] = ['no_show', 'quality', 'prepayment_taken', 'safety', 'other'];
+/** Варианты артборда по порядку; «Ущерб имуществу» (`damage`) — только в API. «Не пришёл» — когда
+ *  сделку уже не отменить: иначе «Не пришёл → Отменить и выбрать другого» (S26). */
+const KINDS: readonly DisputeKind[] = ['quality', 'prepayment_taken', 'safety', 'other'];
+const KINDS_MARKED: readonly DisputeKind[] = ['no_show', ...KINDS];
 /** Как у backend (domain/dispute.py): текст и фото каждой стороны. */
 const MAX_TEXT = 2000;
 const MAX_PHOTOS = 6;
@@ -162,6 +166,7 @@ function Form({ deal }: { deal: DealCardOut }) {
   const [kind, setKind] = useState<DisputeKind | null>(null);
   const [description, setDescription] = useState('');
   const name = deal.counterpart.display_name;
+  const marked = deal.timeline.my_mark_at !== null || deal.timeline.other_mark_at !== null;
   const ready = kind !== null && description.trim() !== '' && !photos.uploads.uploading;
   useStepButton({
     text: t('dispute.send'),
@@ -187,7 +192,7 @@ function Form({ deal }: { deal: DealCardOut }) {
         </h2>
         <RadioGroup labelledBy={whatId}>
           <Group>
-            {KINDS.map((value) => (
+            {(marked ? KINDS_MARKED : KINDS).map((value) => (
               <RadioRow
                 key={value}
                 title={t(`dispute.kind.${value}`)}

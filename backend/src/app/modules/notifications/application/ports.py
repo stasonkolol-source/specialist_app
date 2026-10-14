@@ -49,6 +49,7 @@ from app.platform.contracts.events.jobs import (
     JobExpiring,
     JobInvited,
     JobPublished,
+    JobReopened,
     ResponseAccepted,
     ResponseDeclined,
     ResponseSubmitted,
@@ -392,6 +393,15 @@ NOTIFY_PASSED_OVER: Final = TaskRef(
     "notifications.notify_passed_over", ResponseAccepted, queue="notifications"
 )
 """Подписчик ResponseAccepted: остальным откликнувшимся — «Клиент выбрал другого исполнителя»."""
+NOTIFY_CHOICE_MADE: Final = TaskRef(
+    "notifications.notify_choice_made", ResponseAccepted, queue="notifications"
+)
+"""Подписчик ResponseAccepted: клиенту — «Вы выбрали …», контакты — в сделке, оплата — после
+работы, лично, и «Пожаловаться» под сообщением, если просят предоплату."""
+NOTIFY_JOB_REOPENED: Final = TaskRef(
+    "notifications.notify_job_reopened", JobReopened, queue="notifications"
+)
+"""Подписчик JobReopened: прежним кандидатам — «Заявка снова открыта, ваш отклик в силе»."""
 NOTIFY_JOB_CLOSED: Final = TaskRef(
     "notifications.notify_job_closed", JobClosed, queue="notifications"
 )

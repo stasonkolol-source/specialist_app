@@ -8,20 +8,23 @@ payload: коды превращаются в слова каталога, да�
 (`job.invited`, 5.6) — «Посмотреть заявку» и «Откликнуться: «…»» на каждый шаблон получателя:
 нажатие обрабатывает бот модуля jobs (platform/telegram/callbacks.py). У «Работа выполнена?»
 (`deal.completion_prompt`, 6.1b; после отметки второй стороны — «Алексей: работа «…» выполнена»,
-B2) — callback «Да, выполнено» (бот deals) и web_app «Есть проблема» сразу на спор S52 (`p_`,
-6.1c); у «Договорились?» (`deal.proposed`, 6.3b) — callback «Подтвердить» и «Отклонить» (бот
-deals) и web_app «Посмотреть условия». Спор (6.1c): `dispute.opened` — «Ответить» на S52,
-`dispute.resolved` — «Посмотреть решение». Подписки на заявки (5.7): `job.matched` — карточка B1
-(название жирным, бюджет, район и расстояние, когда, места и подписка) с «Открыть заявку»,
-«Откликнуться шаблоном «…»» на каждый шаблон получателя, «Не подходит» и «Пауза подписки» (их
-обрабатывает бот jobs); закрытой заявке кнопки гасятся (`retired_buttons`). Бюджет и время B1 —
-те же строки, что в карточке «Поделиться» (platform/i18n/jobs.py). `job.digest` — подборка по
-подпискам с «Открыть ленту», `profile.stale_reminder` — «Включить «Доступен сегодня»» (S38) и
-«Обновить профиль» (S33).
+B2) — callback «Да, выполнено», «Ещё нет» (пока перенос возможен) и «Есть проблема» (три пути
+вместо спора — бот deals); у «Договорились?» (`deal.proposed`, 6.3b) — callback
+«Подтвердить» и «Отклонить» (бот deals) и web_app «Посмотреть условия». Спор (6.1c):
+`dispute.opened` — «Ответить» на S52, `dispute.resolved` — «Посмотреть решение». Подписки на
+заявки (5.7): `job.matched` — карточка B1 (название жирным, бюджет, район и расстояние, когда,
+места и подписка) с «Открыть заявку», «Откликнуться шаблоном «…»» на каждый шаблон получателя,
+«Не подходит» и «Пауза подписки» (их обрабатывает бот jobs); закрытой заявке кнопки гасятся
+(`retired_buttons`). Бюджет и время B1 — те же строки, что в карточке «Поделиться»
+(platform/i18n/jobs.py). `job.digest` — подборка по подпискам с «Открыть ленту»,
+`profile.stale_reminder` — «Включить «Доступен сегодня»» (S38) и «Обновить профиль» (S33).
 
 У срока заявки, кроме callback-кнопок, — «Открыть заявку»; у «Выбрали другого» и «Заявка закрыта
-без выбора» — «Мои отклики» (S17), у «Заявка опубликована» — «Открыть заявку»: каждая кнопка ведёт
-к объекту, о котором текст (UX-аудит №11). Слова статусов — словарь packages/i18n/GLOSSARY.md.
+без выбора» — «Мои отклики» (S17), у «Заявка опубликована» и «Заявка снова открыта» — «Открыть
+заявку», у отмены сделки, после которой заявка снова открыта, — «Выбрать из откликов» (S23): каждая
+кнопка ведёт к объекту, о котором текст (UX-аудит №11). «Вы выбрали …» клиенту (`response.chosen`)
+— «Открыть сделку» и callback «Пожаловаться» (просят предоплату, бот moderation). Слова
+статусов — словарь packages/i18n/GLOSSARY.md.
 
 Шаблоны есть у типов, которые создаёт подписчик (tasks.py): тип без шаблонов — ошибка
 программиста, её ловит тест на каталоги.
@@ -74,7 +77,9 @@ RENDERED = frozenset(
         NotificationType.RESPONSE_RECEIVED,
         NotificationType.JOB_INVITED,
         NotificationType.RESPONSE_ACCEPTED,
+        NotificationType.RESPONSE_CHOSEN,
         NotificationType.RESPONSE_NOT_SELECTED,
+        NotificationType.RESPONSE_REOPENED,
         NotificationType.RESPONSE_DECLINED,
         NotificationType.MESSAGE_RECEIVED,
         NotificationType.DEAL_PROPOSED,
@@ -125,6 +130,7 @@ BUTTONS: Mapping[NotificationType, str] = MappingProxyType(
         NotificationType.RESPONSE_RECEIVED: "notifications.response_received.button",
         NotificationType.RESPONSE_ACCEPTED: "notifications.deal.open",
         NotificationType.RESPONSE_NOT_SELECTED: "notifications.my_responses.button",
+        NotificationType.RESPONSE_REOPENED: "notifications.job_matched.open",
         NotificationType.MESSAGE_RECEIVED: "notifications.message_received.button",
         NotificationType.DEAL_AGREED: CHAT_BUTTON,
         NotificationType.DEAL_CANCELLED: "notifications.deal.open",
@@ -141,6 +147,7 @@ TITLED: Mapping[NotificationType, str] = MappingProxyType(
     {
         NotificationType.RESPONSE_ACCEPTED: "response_accepted",
         NotificationType.RESPONSE_NOT_SELECTED: "response_not_selected",
+        NotificationType.RESPONSE_REOPENED: "response_reopened",
         NotificationType.RESPONSE_DECLINED: "response_declined",
         NotificationType.DEAL_COMPLETION_PROMPT: "deal_completion_prompt",
         NotificationType.DEAL_AGREED: "deal_agreed",
@@ -209,6 +216,8 @@ class GettextNotificationRenderer:
             return self._deal_proposed(params, locale)
         if type_ is NotificationType.DEAL_CANCELLED:
             return self._deal_cancelled(params, locale)
+        if type_ is NotificationType.RESPONSE_CHOSEN:
+            return self._chosen(params, locale)
         if type_ is NotificationType.DEAL_REMINDER:
             return RenderedText(
                 title=self._t("notifications.deal_reminder.title", locale),
@@ -324,11 +333,15 @@ class GettextNotificationRenderer:
             return message, self._completion_buttons(params, link, locale)
         if type_ is NotificationType.DEAL_PROPOSED:
             return message, self._proposal_buttons(params, link, locale)
+        if type_ is NotificationType.RESPONSE_CHOSEN:
+            return message, self._chosen_buttons(params, link, locale)
         if type_ is NotificationType.REVIEW_REQUEST:
             return message, self._review_buttons(params, link, locale)
         label = BUTTONS.get(type_)
         if type_ is NotificationType.DEAL_CANCELLED and params.get("proposal") in PROPOSAL_OUTCOMES:
             label = CHAT_BUTTON  # предложение не приняли: обсуждают дальше в чате
+        elif type_ is NotificationType.DEAL_CANCELLED and params.get("reopened") == "true":
+            label = "notifications.deal_cancelled.responses"  # заявка снова открыта: к откликам
         if params.get("entity_type") == "appeal":  # итог апелляции: исправлять нечего
             label = "notifications.appeal_decided.button"
         if label is None or link is None or self._mini_app is None:
@@ -801,8 +814,11 @@ class GettextNotificationRenderer:
     def _completion_buttons(
         self, params: Mapping[str, str], link: str | None, locale: Locale
     ) -> tuple[ButtonLine, ...]:
-        """Один ряд (B2): «Да, всё хорошо» — отметка в сделке прямо из чата (бот deals); «Есть
-        проблема» — сразу спор S52 в Mini App (`p_`, 6.1c), без лишнего шага через сделку."""
+        """B2: «Да, всё хорошо» — отметка в сделке прямо из чата (бот deals); «Ещё нет» — спросить
+        снова через сутки (пока перенос возможен; после отметки второй стороны — нет: сделка и так
+        завершится через 3 дня); «Есть проблема» — три пути под тем же сообщением: отменить и
+        выбрать другого, пожаловаться, спор (бот deals); без id сделки — к сделке в Mini App. С
+        «Ещё нет» — «Да» и «Ещё нет» одним рядом, «Есть проблема» ниже; без неё — одним рядом."""
         buttons: list[Button] = []
         try:
             deal_id = UUID(params.get("deal_id", ""))
@@ -815,19 +831,67 @@ class GettextNotificationRenderer:
                     data=encode_callback(CallbackData(CallbackAction.DEAL_COMPLETE, deal_id)),
                 )
             )
-        problem = (
-            encode_start_param(StartLink(type=LinkType.DISPUTE, id=deal_id))
-            if deal_id is not None
-            else link
+        problem_button: Button | None = None
+        if deal_id is not None:
+            problem_button = CallbackButton(
+                text=self._t("notifications.deal_completion_prompt.problem", locale),
+                data=encode_callback(CallbackData(CallbackAction.DEAL_PROBLEM, deal_id)),
+            )
+        elif link is not None and self._mini_app is not None:
+            problem_button = AppButton(
+                text=self._t("notifications.deal_completion_prompt.problem", locale),
+                url=mini_app_url(self._mini_app, link),
+            )
+        if deal_id is not None and params.get("snooze") == "true" and params.get("by") not in SIDES:
+            not_yet = CallbackButton(
+                text=self._t("notifications.deal_completion_prompt.not_yet", locale),
+                data=encode_callback(CallbackData(CallbackAction.DEAL_SNOOZE, deal_id)),
+            )
+            first: ButtonLine = (*buttons, not_yet)
+            return (first, problem_button) if problem_button is not None else (first,)
+        if problem_button is not None:
+            buttons.append(problem_button)
+        return (tuple(buttons),) if buttons else ()
+
+    def _chosen(self, params: Mapping[str, str], locale: Locale) -> RenderedText:
+        """«Вы выбрали: Алексей» — имя без склонения. Имени нет (аккаунт удалён) — «Вы выбрали
+        исполнителя»."""
+        name = (params.get("name") or "").strip()
+        title = (
+            self._t("notifications.response_chosen.title", locale, name=_short(name))
+            if name
+            else self._t("notifications.response_chosen.title_no_name", locale)
         )
-        if problem is not None and self._mini_app is not None:
+        return RenderedText(
+            title=title,
+            body=self._t(
+                "notifications.response_chosen.body", locale, title=_short(params.get("title"))
+            ),
+        )
+
+    def _chosen_buttons(
+        self, params: Mapping[str, str], link: str | None, locale: Locale
+    ) -> tuple[ButtonLine, ...]:
+        """«Открыть сделку» (S26) и «Пожаловаться» — просят предоплату: жалоба в один тап."""
+        buttons: list[Button] = []
+        if link is not None and self._mini_app is not None:
             buttons.append(
                 AppButton(
-                    text=self._t("notifications.deal_completion_prompt.problem", locale),
-                    url=mini_app_url(self._mini_app, problem),
+                    text=self._t("notifications.deal.open", locale),
+                    url=mini_app_url(self._mini_app, link),
                 )
             )
-        return (tuple(buttons),) if buttons else ()
+        try:
+            deal_id = UUID(params.get("deal_id", ""))
+        except ValueError:
+            return tuple(buttons)
+        buttons.append(
+            CallbackButton(
+                text=self._t("notifications.response_chosen.report", locale),
+                data=encode_callback(CallbackData(CallbackAction.DEAL_REPORT, deal_id)),
+            )
+        )
+        return tuple(buttons)
 
     def _invited(self, params: Mapping[str, str], locale: Locale) -> RenderedText:
         """«Вас приглашают откликнуться» или «Прямой запрос»: кто и на какую заявку."""
