@@ -181,7 +181,7 @@ async def test_whole_city_specialist_has_the_city_instead_of_a_district(web: Htt
 
 
 async def test_card_reads_do_not_grow_with_the_profile(web: HttpApp) -> None:
-    """Перф-аудит: карточка S08 — десять запросов при любом числе районов и работ (было 16 и
+    """Перф-аудит: карточка S08 — одиннадцать запросов при любом числе районов и работ (было 16 и
     по запросу на район): фото и работы — одним, справочники — из снимка в памяти процесса,
     отзывы «до платформы» — счётчиком для строки «Отзывы до платформы · N», уровень доверия
     автора — для маски контактов в текстах и прайсе (B3), бейдж телефона — одним к identity.
@@ -198,7 +198,9 @@ async def test_card_reads_do_not_grow_with_the_profile(web: HttpApp) -> None:
     with round_trips(engine) as reviews:
         assert (await get(web, f"{specialist.profile_id}/reviews")).status_code == 200
 
-    assert card.queries == 10, card.statements
+    # 11: бейдж телефона (identity.get_user) и уровень доверия автора для маски (B3) — по одному
+    # постоянному запросу, от размера профиля число не зависит
+    assert card.queries == 11, card.statements
     assert (card.begins, card.ends) == (0, 0)
     assert services.queries == 4, services.statements
     assert reviews.queries == 5, reviews.statements
