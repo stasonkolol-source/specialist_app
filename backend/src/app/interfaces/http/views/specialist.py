@@ -30,7 +30,13 @@ from app.modules.media.api import MediaApi, MediaRef
 from app.modules.pricing.api import PricingApi, PublicService
 from app.modules.reviews.api import DEAL, PRE_PLATFORM, PublicReview, RatingSummary, ReviewsApi
 from app.modules.search.api import SearchApi
-from app.modules.specialists.api import PublicCard, PublicProfile, PublicWork, SpecialistsApi
+from app.modules.specialists.api import (
+    MASKED_TRUST_LEVEL,
+    PublicCard,
+    PublicProfile,
+    PublicWork,
+    SpecialistsApi,
+)
 from app.platform.http.caching import NOT_MODIFIED, cached_json
 from app.platform.http.money import MoneyOut
 from app.platform.http.ratelimit import GuestOrUserRateLimit
@@ -329,7 +335,8 @@ async def get_specialist(
     rating = _rating((await reviews.summaries([profile.id])).get(profile.id))
     latest = await reviews.reviews_of(profile.id, PageRequest(limit=LATEST_REVIEWS))
     pre_platform = await reviews.review_count(profile.id, kind=PRE_PLATFORM)
-    services = await pricing.public_services(profile.id)
+    # контакты в прайсе — под маской так же, как в текстах профиля (B3)
+    services = await pricing.public_services(profile.id, masked=profile.masked)
     # фото профиля и работы — одним запросом; готовность всех работ нужна для works_count
     avatars = await media.refs([*_avatar_ids(profile), *(work.media_id for work in profile.works)])
     works = _ready_works(avatars, profile.works)
@@ -395,7 +402,10 @@ async def list_specialist_services(
 ) -> Response:
     """Прайс специалиста S09: все видимые позиции и их группы (категории)."""
     profile = await _visible_card(profile_id, specialists, identity)
-    services = await pricing.public_services(profile.id)
+    author = await identity.get_user(profile.user_id)
+    # автор уровня ≤ 1: правка прайса видна сразу, проверка — после; контакты — под маской (B3)
+    masked = author is None or author.trust_level <= MASKED_TRUST_LEVEL
+    services = await pricing.public_services(profile.id, masked=masked)
     groups = list(dict.fromkeys(s.category_id for s in services if s.category_id is not None))
     body = CardServicesOut(
         items=[_service(service) for service in services],

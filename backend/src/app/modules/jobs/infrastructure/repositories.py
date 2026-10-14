@@ -161,6 +161,7 @@ def _response(row: ResponseRow) -> Response:
         updated_at=row.updated_at,
         viewed_at=row.viewed_at,
         decided_at=row.decided_at,
+        placed=row.placed,
     )
 
 
@@ -179,6 +180,7 @@ def _apply_response(response: Response, row: ResponseRow) -> None:
     row.updated_at = response.updated_at
     row.viewed_at = response.viewed_at
     row.decided_at = response.decided_at
+    row.placed = response.placed
 
 
 def _to_domain(row: JobRow, media: tuple[MediaId, ...], responses: list[Response]) -> Job:

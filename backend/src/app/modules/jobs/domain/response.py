@@ -8,10 +8,12 @@
 исполнителем» — из отправленного отклик сначала становится просмотренным (§7.9).
 
 Текст проверяет модерация (§14.1, адаптер цели `response`): клиент видит отклик, когда проверка
-пройдена; с флагом — после решения модератора. Нарушение скрывает отклик до исправления: место
-за ним остаётся, исполнитель правит текст и отправляет снова — новая редакция идёт на проверку
-(уведомление «Исправьте и отправьте снова», MU-10). Место отклик занимает и на проверке — иначе
-счётчик «3 из 5» обгонял бы правду.
+пройдена; с флагом — после решения модератора. Место отклик занимает, когда проверку прошёл
+(`placed`, B4): иначе ночью пять откликов, ждущих модератора до утра, закрывали бы заявку для
+всех, а клиент видел бы «5 из 5» и ни одного отклика. Мест к моменту проверки не осталось —
+отклик «отклонён» без участия клиента (`no_room`), исполнителю — уведомление. Нарушение скрывает
+отклик до исправления: занятое место за ним остаётся, исполнитель правит текст и отправляет
+снова — новая редакция идёт на проверку (уведомление «Исправьте и отправьте снова», MU-10).
 """
 
 from dataclasses import dataclass, field
@@ -44,11 +46,17 @@ class ResponseStatus(StrEnum):
 ACTIVE: Final = frozenset(
     {ResponseStatus.SUBMITTED, ResponseStatus.VIEWED, ResponseStatus.SHORTLISTED}
 )
-"""Ждут решения клиента и занимают место из `max_responses` (§7.9)."""
+"""Ждут решения клиента (§7.9); место из `max_responses` занимают те, что прошли проверку
+(`Response.holds_place`)."""
 
 _ALLOWED: Final[dict[ResponseStatus, frozenset[ResponseStatus]]] = {
     ResponseStatus.SUBMITTED: frozenset(
-        {ResponseStatus.VIEWED, ResponseStatus.WITHDRAWN, ResponseStatus.NOT_SELECTED}
+        {
+            ResponseStatus.VIEWED,
+            ResponseStatus.WITHDRAWN,
+            ResponseStatus.NOT_SELECTED,
+            ResponseStatus.DECLINED,  # мест не осталось, пока шла проверка (B4)
+        }
     ),
     ResponseStatus.VIEWED: frozenset(
         {
@@ -72,6 +80,10 @@ _ALLOWED: Final[dict[ResponseStatus, frozenset[ResponseStatus]]] = {
     ResponseStatus.DECLINED: frozenset(),
     ResponseStatus.WITHDRAWN: frozenset(),
 }
+
+
+JOB_FULL: Final = "job_full"
+"""Причина «отклонён» без клиента (ResponseDeclined.reason): мест не осталось, пока шла проверка."""
 
 
 class ResponseReview(StrEnum):
@@ -141,12 +153,25 @@ class Response:
     """Растёт с каждой правкой: модерация публикует только ту редакцию, которую проверила."""
     viewed_at: datetime | None = None
     decided_at: datetime | None = None
+    placed: bool = True
+    """Занял место на заявке: проверку прошёл хотя бы раз (B4). Новый отклик — False до первой
+    пройденной проверки; отклики до B4 — True (место за ними уже считалось)."""
     _changed: bool = field(default=False, repr=False, compare=False)
     """Новый или изменённый: репозиторий записывает только такие."""
 
     @property
     def is_active(self) -> bool:
         return self.status in ACTIVE
+
+    @property
+    def holds_place(self) -> bool:
+        """Занимает одно из `max_responses` мест: ждёт решения клиента и проверку прошёл."""
+        return self.is_active and self.placed
+
+    @property
+    def job_full(self) -> bool:
+        """Отклонён без клиента: пока отклик проверяли, места на заявке закончились (B4)."""
+        return self.status is ResponseStatus.DECLINED and not self.placed
 
     @property
     def changed(self) -> bool:
@@ -190,6 +215,18 @@ class Response:
         self.updated_at = now
         self._changed = True
         return True
+
+    def take_place(self, *, now: datetime) -> None:
+        """Проверка пройдена и место есть: отклик занимает его (B4)."""
+        self.placed = True
+        self.updated_at = now
+        self._changed = True
+
+    def no_room(self, *, now: datetime) -> None:
+        """Проверка пройдена, а мест уже нет (B4): «отклонён» без участия клиента — клиент его
+        не видел, проверка по нему больше не нужна."""
+        self._move(ResponseStatus.DECLINED, now=now)
+        self.decided_at = now
 
     def block(self, *, now: datetime) -> bool:
         """Нарушение: отклик скрыт от клиента до исправления. Статус и место прежние —

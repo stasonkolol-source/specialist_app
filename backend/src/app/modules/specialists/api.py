@@ -8,12 +8,17 @@
 from collections.abc import Collection
 from dataclasses import dataclass
 from datetime import datetime
-from typing import Protocol
+from typing import Final, Protocol
 from uuid import UUID
 
 from app.modules.specialists.errors import ProfileNotFoundError as ProfileNotFoundError
 from app.platform.kernel.geo import GeoPoint
 from app.platform.kernel.ids import CategoryId, CityId, DistrictId, MediaId, UserId
+
+MASKED_TRUST_LEVEL: Final = 1
+"""До этого уровня доверия автора включительно публичные тексты профиля (заголовок, «о себе»,
+подписи работ, прайс) показываются с маской контактов (B3): правка опубликованного видна сразу,
+а проверяется после; у уровня 2 сделки уже были."""
 
 
 @dataclass(frozen=True, slots=True, kw_only=True)
@@ -79,6 +84,9 @@ class PublicProfile:
     published_at: datetime | None
     works: tuple[PublicWork, ...]
     """Опубликованные работы портфолио по порядку S37."""
+    masked: bool = False
+    """Тексты показаны с маской контактов (автор — уровень ≤ MASKED_TRUST_LEVEL): прайс того же
+    профиля показывать так же (`PricingApi.public_services(masked=…)`, B3)."""
 
 
 @dataclass(frozen=True, slots=True, kw_only=True)
@@ -110,13 +118,16 @@ class ProfileForReview:
 
     user_id: UserId
     text: str
-    """Имя, «коротко о себе» и «о себе» — одним текстом."""
+    """Имя, «коротко о себе» и «о себе» — одним текстом; у нового профиля — и подписи работ,
+    ждущих проверки вместе с ним (B5)."""
     version: int
     """Редакция профиля (`Profile.revision`): решение модератора действует только на неё."""
     first_review: bool
     """Новый профиль или переход в «Специалист»: проверяет человек (P2, §14.1)."""
     risk_level: int
     """Самый строгий риск категорий профиля (catalog)."""
+    media_ids: tuple[MediaId, ...] = ()
+    """Фото работ нового профиля, ждущих проверки: доказательства кейса профиля (B5)."""
 
 
 @dataclass(frozen=True, slots=True, kw_only=True)
@@ -148,9 +159,23 @@ class WorkForReview:
     """Ждёт проверки (новая); False — опубликована, проверяется правка подписи."""
     new_profile: bool
     """Профиль ещё ни разу не публиковался: портфолио нового профиля проверяет человек (P2,
-    ARCHITECTURE §14.1, ADR-0016)."""
+    ARCHITECTURE §14.1, ADR-0016) — в кейсе профиля (B5)."""
     risk_level: int
     """Самый строгий риск категорий профиля (catalog), как у профиля."""
+    profile_id: UUID
+    profile_status: str
+    """draft | pending_review | published | hidden | suspended: работа нового профиля ждёт
+    модератора в кейсе профиля, пока тот на проверке (B5)."""
+
+
+@dataclass(frozen=True, slots=True, kw_only=True)
+class WaitingWork:
+    """Работа нового профиля, ждущая проверки вместе с ним: «Одобрить профиль» публикует и её."""
+
+    id: UUID
+    media_id: MediaId
+    caption: str | None
+    revision: int
 
 
 @dataclass(frozen=True, slots=True, kw_only=True)
@@ -200,9 +225,14 @@ class SpecialistsApi(Protocol):
         удалён или проверять нечего (черновик, приостановлен)."""
         ...
 
-    async def approve_profile(self, profile_id: UUID, *, version: int | None) -> None:
+    async def approve_profile(self, profile_id: UUID, *, version: int | None) -> bool:
         """Проверка пройдена — в транзакции вызывающего: ждавший проверки публикуется;
-        другая версия или статус — ничего."""
+        другая версия или статус — ничего. True — опубликован сейчас."""
+        ...
+
+    async def waiting_works(self, profile_id: UUID) -> list[WaitingWork]:
+        """Работы профиля, который ещё ни разу не публиковался, ждущие проверки, — по порядку S37.
+        У опубликованного раньше профиля — пусто: его работы проверяются каждая сама (B5)."""
         ...
 
     async def reject_profile(self, profile_id: UUID, *, reason_code: str) -> None:
@@ -216,12 +246,19 @@ class SpecialistsApi(Protocol):
 
     async def public_profile(self, profile_id: UUID) -> PublicProfile | None:
         """Опубликованный профиль с работами портфолио (S08). Черновик, скрытый, удалённый или
-        несуществующий — None. Санкции автора проверяет вызывающий (identity)."""
+        несуществующий — None. Санкции автора проверяет вызывающий (identity). Контакты в имени
+        скрыты маской, у автора с уровнем доверия ≤ 1 — и в заголовке, «о себе» и подписях (B3)."""
         ...
 
     async def public_cards(self, profile_ids: Collection[UUID]) -> dict[UUID, PublicCard]:
         """Опубликованные профили карточками — пачкой; черновика, скрытого, удалённого и
-        несуществующего нет в ответе. Санкции автора проверяет вызывающий (identity)."""
+        несуществующего нет в ответе. Санкции автора проверяет вызывающий (identity). Контакты
+        в имени скрыты маской (B3)."""
+        ...
+
+    async def untrusted(self, profile_ids: Collection[UUID]) -> frozenset[UUID]:
+        """Опубликованные профили, чьи тексты показываются клиентам с маской контактов: автор —
+        уровень доверия ≤ 1 (B3). Правка опубликованного видна сразу, а проверка — после."""
         ...
 
     async def published_profile_ids(self, *, after: UUID | None, limit: int) -> list[UUID]:

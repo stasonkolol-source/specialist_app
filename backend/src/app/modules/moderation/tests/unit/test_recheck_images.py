@@ -166,6 +166,13 @@ async def test_nothing_unchecked_needs_no_transaction() -> None:
     assert (count, uow.opened) == (0, 0)
 
 
+class NoWorks:
+    """Фото ещё не прикреплено к работе портфолио: кейс — о самом фото."""
+
+    async def works_by_media(self, media_ids: object) -> dict[MediaId, object]:
+        return {}
+
+
 def check_image(media: Media) -> tuple[CheckImage, Opener, FakeMetrics]:
     opener, metrics = Opener(), FakeMetrics()
     check = CheckImage(
@@ -175,7 +182,7 @@ def check_image(media: Media) -> tuple[CheckImage, Opener, FakeMetrics]:
         cast(CaseOpener, opener),
         cast(AutoCheckMetrics, metrics),
         cast(AuditLog, Audit()),
-        cast(SpecialistsApi, object()),  # на флаге работы ждут модератора
+        cast(SpecialistsApi, NoWorks()),  # на флаге работы ждут модератора
     )
     return check, opener, metrics
 

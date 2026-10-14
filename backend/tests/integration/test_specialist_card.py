@@ -181,12 +181,12 @@ async def test_whole_city_specialist_has_the_city_instead_of_a_district(web: Htt
 
 
 async def test_card_reads_do_not_grow_with_the_profile(web: HttpApp) -> None:
-    """Перф-аудит: карточка S08 — десять запросов при любом числе районов и работ (было 16 и
+    """Перф-аудит: карточка S08 — одиннадцать запросов при любом числе районов и работ (было 16 и
     по запросу на район): фото и работы — одним, справочники — из снимка в памяти процесса,
-    отзывы «до платформы» — счётчиком для строки «Отзывы до платформы · N», бейдж телефона —
-    одним к identity.
-    Прайс S09 и отзывы S11 проверяют видимость без описаний и портфолио; отзывам S11 — ещё
-    число «До платформы · N» для второй вкладки (7.6а)."""
+    отзывы «до платформы» — счётчиком для строки «Отзывы до платформы · N», уровень доверия
+    автора — для маски контактов в текстах и прайсе (B3), бейдж телефона — одним к identity.
+    Прайс S09 и отзывы S11 проверяют видимость без описаний и портфолио; S09 — ещё уровень
+    доверия автора (маска, B3), отзывам S11 — число «До платформы · N» для второй вкладки (7.6а)."""
     specialist = await published(web)
     await get(web, str(specialist.profile_id))  # снимки справочников прочитаны
     engine = await web.container.get(AsyncEngine)
@@ -198,9 +198,11 @@ async def test_card_reads_do_not_grow_with_the_profile(web: HttpApp) -> None:
     with round_trips(engine) as reviews:
         assert (await get(web, f"{specialist.profile_id}/reviews")).status_code == 200
 
-    assert card.queries == 10, card.statements
+    # 11: бейдж телефона (identity.get_user) и уровень доверия автора для маски (B3) — по одному
+    # постоянному запросу, от размера профиля число не зависит
+    assert card.queries == 11, card.statements
     assert (card.begins, card.ends) == (0, 0)
-    assert services.queries == 3, services.statements
+    assert services.queries == 4, services.statements
     assert reviews.queries == 5, reviews.statements
 
 
@@ -224,6 +226,33 @@ async def test_price_list_and_portfolio_pages(web: HttpApp) -> None:
     ]
     assert [group["id"] for group in services["categories"]] == [specialist.category]
     assert [item["caption"] for item in works["items"]] == ["Люстра в гостиной"]
+
+
+async def test_contacts_in_texts_of_a_new_author_are_masked(web: HttpApp) -> None:
+    """B3: правку опубликованного профиля видно сразу, а проверяют после — у автора уровня 0
+    контакты в «о себе», подписи и прайсе S08 и S09 — под маской; у уровня 2 — как есть."""
+    specialist = await published(web)
+    await specialist.execute(
+        "UPDATE specialists.profiles SET about = 'Пишите: t.me/ivan_master' WHERE id = :id",
+        id=specialist.profile_id,
+    )
+    await specialist.execute(
+        "UPDATE pricing.services SET description = 'Звоните +381 64 123 4567'"
+        " WHERE profile_id = :id",
+        id=specialist.profile_id,
+    )
+
+    card = (await get(web, str(specialist.profile_id))).json()
+    services = (await get(web, f"{specialist.profile_id}/services")).json()
+    assert card["about"] == "Пишите: •••"
+    assert [item["description"] for item in card["services"]] == ["Звоните •••"]
+    assert [item["description"] for item in services["items"]] == ["Звоните •••"]
+
+    await specialist.execute(
+        "UPDATE identity.users SET trust_level = 2 WHERE id = :id", id=specialist.user_id
+    )
+    trusted = (await get(web, f"{specialist.profile_id}/services")).json()
+    assert [item["description"] for item in trusted["items"]] == ["Звоните +381 64 123 4567"]
 
 
 async def test_reviews_page_and_card_show_the_rating(web: HttpApp) -> None:

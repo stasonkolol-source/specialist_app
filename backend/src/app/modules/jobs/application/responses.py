@@ -70,6 +70,8 @@ class MyResponse:
     updated_at: datetime
     decided_at: datetime | None
     job: ResponseJob
+    job_full: bool = False
+    """«Отклонён» без клиента: пока отклик проверяли, места на заявке закончились (B4)."""
 
 
 @dataclass(frozen=True, slots=True, kw_only=True)

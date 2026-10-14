@@ -49,6 +49,14 @@ class InvalidDisplayNameError(DomainValidationError):
     code = "invalid_display_name"
 
 
+class NameLooksLikeContactError(DomainValidationError):
+    """Имя похоже на контакт или ник (`@`, t.me, телефон, домен, «ivan_99»): имя видят до
+    договорённости, контакт в нём прошёл бы мимо маскировки переписки (B3). Публичная ошибка:
+    то же правило у имени профиля (specialists)."""
+
+    code = "name_looks_like_contact"
+
+
 class ConsentRequiredError(ForbiddenError):
     """Создающее действие до принятия правил площадки и политики (S02c).
 

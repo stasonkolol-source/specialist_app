@@ -13571,6 +13571,11 @@
             ],
             "title": "Decided At"
           },
+          "job_full": {
+            "type": "boolean",
+            "title": "Job Full",
+            "description": "declined без клиента: пока отклик проверяли, места на заявке закончились"
+          },
           "job": {
             "$ref": "#/components/schemas/ResponseJobOut"
           }
@@ -13587,6 +13592,7 @@
           "created_at",
           "updated_at",
           "decided_at",
+          "job_full",
           "job"
         ],
         "title": "MyResponseOut",

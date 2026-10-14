@@ -15,8 +15,12 @@ ADR-0016 §3–4; DEVELOPMENT_PLAN 6.7).
 проверяющего нет (Q20: по умолчанию «пока без него»).
 
 Кейс — об объекте `media` (адаптер цели targets/media.py): одобрение возвращает фото, отказ
-скрывает его; файл — доказательство под legal hold, пока кейс открыт. Работа портфолио ждёт
-итога фото (адаптер `portfolio`): чистое фото в той же транзакции снова отправляет ждущие работы
+скрывает его; файл — доказательство под legal hold, пока кейс открыт. Фото работы нового
+профиля (B5, Q34) на REVIEW — не свой кейс: повод с фото уходит в кейс профиля, пока тот на
+проверке, а у черновика кейса нет вовсе — фото увидят в кейсе профиля, когда его отправят;
+«Одобрить профиль» считает фото проверенным. P0 (BLOCK) — по-прежнему свой кейс safety.
+Работа портфолио ждёт итога фото (адаптер `portfolio`): чистое фото в той же транзакции снова
+отправляет ждущие работы
 с ним на автопроверку подписи (`SpecialistsApi.recheck_works`); на флаге — ждут модератора,
 при P0 фото скрыто, и в кабинете работа — «Не подходит». Вызов провайдера — до
 транзакции; итог у файла, кейс и запись в audit_log — в одной. Повтор задачи после commit
@@ -31,6 +35,7 @@ from typing import Final
 import structlog
 
 from app.modules.media.api import MediaApi, ModerationVerdict
+from app.modules.moderation.application.new_profile import DRAFT, PENDING_REVIEW, with_profile
 from app.modules.moderation.application.ports import AutoCheckMetrics
 from app.modules.moderation.application.use_cases.open_case import CaseOpener, OpenCaseCommand
 from app.modules.moderation.domain.cases import CaseTrigger, EntityType
@@ -41,6 +46,7 @@ from app.modules.moderation.domain.images import (
     judge_image,
 )
 from app.modules.moderation.domain.pipeline import Route
+from app.modules.moderation.domain.queues import Queue
 from app.modules.specialists.api import SpecialistsApi
 from app.platform.ai.port import Moderation
 from app.platform.ai.prompt import image_data_url
@@ -148,23 +154,8 @@ class CheckImage:
                 await self._specialists.recheck_works(cmd.media_id)
             case_id = None
             if verdict.queue is not None:
-                case_id = await self._opener.open(
-                    OpenCaseCommand(
-                        queue=verdict.queue,
-                        entity_type=EntityType.MEDIA,
-                        entity_id=cmd.media_id,
-                        subject_id=cmd.owner_id,
-                        trigger=CaseTrigger.AUTO_FLAG,
-                        details={
-                            "event": f"image:{cmd.media_id}",
-                            "signals": list(verdict.signals),
-                            "purpose": cmd.purpose,
-                            "hidden": verdict.action is ImageAction.BLOCK,
-                            "reason": verdict.reason_code,
-                        },
-                        media_ids=(cmd.media_id,),
-                    )
-                )
+                case = await self._case(cmd, verdict)
+                case_id = await self._opener.open(case) if case is not None else None
             await self._audit.record(
                 AuditEntry(
                     action="moderation.image_check",
@@ -180,3 +171,40 @@ class CheckImage:
                 )
             )
             return True, case_id
+
+    async def _case(self, cmd: CheckImageCommand, verdict: ImageVerdict) -> OpenCaseCommand | None:
+        """Кейс о фото; фото работы нового профиля на REVIEW — повод в кейс профиля (B5), у
+        черновика — никакого кейса."""
+        details: dict[str, object] = {
+            "event": f"image:{cmd.media_id}",
+            "signals": list(verdict.signals),
+            "purpose": cmd.purpose,
+            "hidden": verdict.action is ImageAction.BLOCK,
+            "reason": verdict.reason_code,
+        }
+        if cmd.purpose == PORTFOLIO_PURPOSE and verdict.action is ImageAction.REVIEW:
+            for ref in (await self._specialists.works_by_media([cmd.media_id])).values():
+                work = await self._specialists.work_for_review(ref.id)
+                if work is None or not with_profile(work):
+                    continue
+                if work.profile_status == DRAFT:
+                    return None
+                if work.profile_status == PENDING_REVIEW:
+                    return OpenCaseCommand(
+                        queue=verdict.queue or Queue.PREMOD,
+                        entity_type=EntityType.PROFILE,
+                        entity_id=work.profile_id,
+                        subject_id=cmd.owner_id,
+                        trigger=CaseTrigger.AUTO_FLAG,
+                        details={**details, "work_id": str(ref.id)},
+                        media_ids=(cmd.media_id,),
+                    )
+        return OpenCaseCommand(
+            queue=verdict.queue or Queue.PREMOD,
+            entity_type=EntityType.MEDIA,
+            entity_id=cmd.media_id,
+            subject_id=cmd.owner_id,
+            trigger=CaseTrigger.AUTO_FLAG,
+            details=details,
+            media_ids=(cmd.media_id,),
+        )

@@ -70,9 +70,10 @@ type Outcome =
   | 'not_selected'
   | 'job_closed'
   | 'declined'
+  | 'job_full'
   | 'withdrawn';
 
-function outcomeOf({ status, review, job }: MyResponseOut): Outcome {
+function outcomeOf({ status, review, job, job_full: jobFull }: MyResponseOut): Outcome {
   if (ACTIVE.has(status)) {
     if (review === 'blocked') return 'blocked';
     if (review === 'pending') return 'pending';
@@ -80,7 +81,9 @@ function outcomeOf({ status, review, job }: MyResponseOut): Outcome {
   }
   if (status === 'accepted') return job.status === 'completed' ? 'completed' : 'accepted';
   if (status === 'not_selected') return CLOSED_JOB.has(job.status) ? 'job_closed' : 'not_selected';
-  return status === 'declined' ? 'declined' : 'withdrawn';
+  // отклонил не клиент: пока отклик проверяли, места на заявке закончились (B4)
+  if (status === 'declined') return jobFull ? 'job_full' : 'declined';
+  return 'withdrawn';
 }
 
 const TONES: Record<Outcome, BadgeTone> = {
@@ -93,6 +96,7 @@ const TONES: Record<Outcome, BadgeTone> = {
   not_selected: 'mute',
   job_closed: 'mute',
   declined: 'mute',
+  job_full: 'mute',
   withdrawn: 'mute',
 };
 /** Решено клиентом или исполнителем — со временем решения. */
@@ -100,6 +104,7 @@ const DECIDED: ReadonlySet<Outcome> = new Set([
   'not_selected',
   'job_closed',
   'declined',
+  'job_full',
   'withdrawn',
 ]);
 

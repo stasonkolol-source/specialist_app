@@ -1,4 +1,5 @@
-"""События модуля pricing (ADR-0020 §2). Подписчик — read-model поиска (4.1: цена «от»)."""
+"""События модуля pricing (ADR-0020 §2). Подписчики — read-model поиска (4.1: цена «от») и
+модерация: прайс — часть текста профиля (B3)."""
 
 from dataclasses import dataclass
 from uuid import UUID

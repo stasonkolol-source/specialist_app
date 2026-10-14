@@ -444,6 +444,9 @@ class MyResponseOut(BaseModel):
     created_at: datetime
     updated_at: datetime
     decided_at: datetime | None
+    job_full: bool = Field(
+        description="declined без клиента: пока отклик проверяли, места на заявке закончились"
+    )
     job: ResponseJobOut
 
     @classmethod
@@ -459,6 +462,7 @@ class MyResponseOut(BaseModel):
             created_at=response.created_at,
             updated_at=response.updated_at,
             decided_at=response.decided_at,
+            job_full=response.job_full,
             job=ResponseJobOut.of(response.job),
         )
 

@@ -304,7 +304,7 @@ export function myResponsesFixture(feed: FeedFixture[] = FEED_JOBS): MyResponseO
     if (!found) throw new Error(`no feed job ${title}`);
     return responseJobOf(found.card);
   };
-  const base = { review: 'clear' as const, is_first: false, decided_at: null };
+  const base = { review: 'clear' as const, is_first: false, decided_at: null, job_full: false };
   return [
     {
       ...base,
@@ -844,6 +844,7 @@ export class JobsBackend {
       created_at: now,
       updated_at: now,
       decided_at: null,
+      job_full: false,
       job: { ...responseJobOf(listed.card), responses_count: this.taken(listed.card) + 1 },
     };
     this.responses = [response, ...this.responses];

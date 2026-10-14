@@ -1,13 +1,18 @@
 """Поля профиля (S32a–c, S34; PATCH /me/profile). Правки опубликованного применяются сразу,
 изменённый текст уходит на пост-модерацию (§7.9); правка ждущего первой проверки — снова на
-проверку (ADV-11). Тип меняется только у черновика."""
+проверку (ADV-11). Тип меняется только у черновика. Имя, похожее на контакт или ник, — 422
+`name_looks_like_contact` (B3)."""
 
 from collections.abc import Sequence
 from dataclasses import dataclass
 
 from app.modules.identity.api import Action, IdentityApi
 from app.modules.specialists.application.ports import ProfileRepository
-from app.modules.specialists.application.profiles import own_profile, review_change
+from app.modules.specialists.application.profiles import (
+    ensure_safe_name,
+    own_profile,
+    review_change,
+)
 from app.modules.specialists.domain.profile import Profile, ProfileKind
 from app.platform.db.port import UnitOfWork
 from app.platform.kernel.clock import Clock
@@ -41,6 +46,7 @@ class EditProfile:
         now = self._clock.now()
         async with self._uow:
             profile = await own_profile(self._profiles, cmd.actor_id, cmd.expected_version)
+            ensure_safe_name(cmd.display_name, current=profile.display_name)
             if cmd.kind is not None:
                 profile.change_kind(ProfileKind(cmd.kind))
             changed = profile.edit(

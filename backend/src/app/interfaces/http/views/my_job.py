@@ -40,6 +40,7 @@ from app.platform.http.money import MoneyOut
 from app.platform.http.security import AUTHENTICATED
 from app.platform.kernel.localized import Locale
 from app.platform.kernel.principal import Principal
+from app.platform.text.contact_masking import mask_contacts
 
 router = APIRouter(tags=["views"])
 JobPath = Annotated[UUID, Path(description="id своей заявки")]
@@ -168,7 +169,8 @@ async def list_response_cards(
     for response in responses:
         card = cards.get(response.profile_id) if response.profile_id else None
         user = users.get(response.performer_id)
-        name = user.display_name if user is not None and not user.is_deleted else ""
+        # контакт в имени (заведено до правила B3) — маской; имя профиля маскирует specialists
+        name = mask_contacts(user.display_name) if user is not None and not user.is_deleted else ""
         rating = ratings.get(card.id) if card is not None else None
         area = areas.get(primary[card.id]) if card is not None and card.id in primary else None
         avatar = avatars.get(card.avatar_media_id) if card and card.avatar_media_id else None

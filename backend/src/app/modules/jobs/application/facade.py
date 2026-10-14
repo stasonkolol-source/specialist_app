@@ -348,8 +348,8 @@ class JobsFacade(JobsApi):
     async def response_for_review(self, response_id: UUID) -> ResponseForReview | None:
         job = await self._job_of_response(ResponseId(response_id))
         response = next((r for r in job.responses if r.id == response_id), None) if job else None
-        if response is None or response.review is not ResponseReview.PENDING:
-            return None
+        if response is None or response.review is not ResponseReview.PENDING or response.job_full:
+            return None  # мест не осталось (B4): проверять больше нечего
         offer = response.offer
         text = "\n\n".join(part for part in (offer.message, offer.availability_note) if part)
         return ResponseForReview(

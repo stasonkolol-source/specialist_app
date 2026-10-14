@@ -6,6 +6,7 @@ from dataclasses import dataclass
 from app.modules.geo.api import GeoApi
 from app.modules.identity.api import Action, IdentityApi
 from app.modules.specialists.application.ports import ProfileRepository
+from app.modules.specialists.application.profiles import ensure_safe_name
 from app.modules.specialists.domain.profile import Profile, ProfileKind
 from app.modules.specialists.errors import InvalidProfileError
 from app.platform.db.port import UnitOfWork
@@ -19,7 +20,7 @@ class CreateProfileCommand:
     kind: ProfileKind
     city_id: CityId
     display_name: str | None = None
-    """Пусто — имя из Telegram (identity)."""
+    """Пусто — имя аккаунта (identity); своё, похожее на контакт или ник, — 422 (B3)."""
 
 
 class CreateProfile:
@@ -39,6 +40,7 @@ class CreateProfile:
         city = await self._geo.city(cmd.city_id)
         if city is None or not city.is_active:
             raise InvalidProfileError(field="city_id")
+        ensure_safe_name(cmd.display_name)
         name = cmd.display_name
         if not name:
             user = await self._identity.get_user(cmd.actor_id)

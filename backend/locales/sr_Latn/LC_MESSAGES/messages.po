@@ -426,6 +426,9 @@ msgstr "Zahtev za brisanje naloga se već obrađuje. Pokušajte ponovo."
 msgid "errors.invalid_display_name"
 msgstr "Ime ne može biti prazno."
 
+msgid "errors.name_looks_like_contact"
+msgstr "Ime liči na kontakt ili korisničko ime. Unesite samo ime — kontakti se otvaraju nakon dogovora."
+
 msgid "errors.consent_required"
 msgstr "Da biste nastavili, prihvatite pravila platforme i politiku privatnosti."
 
@@ -1039,6 +1042,12 @@ msgstr "Zahtev je zatvoren bez izbora"
 msgid "notifications.response_job_closed.body"
 msgstr "Zahtev „{title}“. Hvala na ponudi — u listi ima drugih zahteva u blizini."
 
+msgid "notifications.response_job_full.title"
+msgstr "Na zahtevu više nema mesta"
+
+msgid "notifications.response_job_full.body"
+msgstr "Zahtev „{title}“. Dok smo proveravali ponudu, mesta na zahtevu su popunjena — u listi ima drugih zahteva u blizini."
+
 msgid "notifications.response_declined.title"
 msgstr "Klijent je odbio ponudu"
 
@@ -1642,6 +1651,12 @@ msgstr "Zahtev"
 
 msgid "bot.moderation.field.availability"
 msgstr "Kada može"
+
+msgid "bot.moderation.field.prices"
+msgstr "Cenovnik"
+
+msgid "bot.moderation.field.works"
+msgstr "Radovi na proveri"
 
 msgid "bot.moderation.why.report"
 msgstr "prijava: {reason}"

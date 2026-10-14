@@ -5,6 +5,9 @@
 санкцией (приостановка, бан, теневой бан). Остальные строки удаляются; у срочной санкции
 известен её конец — тогда профиль надо пересобрать снова (`reindex_at`).
 
+Карточка выдачи показывает имя и заголовок так же, как карточка S08 (B3): контакты в имени —
+маской всегда, в заголовке — у автора с уровнем доверия ≤ 1 (`SpecialistsApi.untrusted`).
+
 «Телефон подтверждён» — только в готовой карточке (`card.phone_verified`), не в колонке
 `badges`: по ней выдача считает доверие (`BADGE_TRUST`, вес `trust`) и фильтр `verified`, а
 порядок выдачи не должен зависеть от телефона, пока нет страницы «Как мы сортируем» (ZZP ст. 28).
@@ -36,6 +39,7 @@ from app.modules.search.domain.index import (
 from app.modules.specialists.api import ProfileForIndex, SpecialistsApi
 from app.platform.kernel.clock import Clock
 from app.platform.kernel.ids import CategoryId, DistrictId, MediaId
+from app.platform.text.contact_masking import mask_contacts
 
 PUBLISHED = "published"
 METERS_IN_KM = 1000
@@ -89,6 +93,7 @@ class SpecialistProjection:
 
     async def _context(self, profiles: list[ProfileForIndex]) -> _Context:
         prices = await self._pricing.search_prices([p.id for p in profiles])
+        untrusted = await self._specialists.untrusted([p.id for p in profiles])
         own = {category for p in profiles for category in p.category_ids}
         priced = {category for summary in prices.values() for category in summary.by_category}
         categories = {c.id: c for c in await self._catalog.categories(own | priced)}
@@ -112,6 +117,7 @@ class SpecialistProjection:
             avatars=refs,
             ratings=ratings,
             whole_city=whole_city,
+            untrusted=untrusted,
             phone_verified={user_id for user_id, user in users.items() if user.phone_verified},
         )
 
@@ -175,6 +181,7 @@ class SpecialistProjection:
                 district,
                 rating,
                 whole_city=whole_city,
+                untrusted=profile.id in context.untrusted,
                 phone_verified=profile.user_id in context.phone_verified,
             ),
             source_updated_at=profile.updated_at,
@@ -191,6 +198,8 @@ class _Context:
     ratings: Mapping[UUID, RatingSummary]
     whole_city: Collection[UUID]
     """Профили, чьи районы — все кварталы города (GeoApi.covers_city)."""
+    untrusted: Collection[UUID] = frozenset()
+    """Профили, чьи тексты показываются с маской контактов (B3)."""
     phone_verified: Collection[UUID] = frozenset()
     """Авторы с подтверждённым телефоном (IdentityApi.users)."""
 
@@ -237,14 +246,17 @@ def _card(
     rating: RatingSummary | None = None,
     *,
     whole_city: bool = False,
+    untrusted: bool = False,
     phone_verified: bool = False,
 ) -> dict[str, Any]:
     """Готовая карточка выдачи S05 без JOIN: время и расстояние выдача берёт из колонок. Единица
     цены «от» — только для показа («от 1 000 RSD/час»), поэтому в карточке, а не колонкой: по всему
     прайсу и по каждой категории с ценой (выдача в категории показывает её цену)."""
     return {
-        "display_name": profile.display_name,
-        "headline": profile.headline,
+        "display_name": mask_contacts(profile.display_name),
+        "headline": (
+            mask_contacts(profile.headline) if untrusted and profile.headline else profile.headline
+        ),
         "kind": profile.kind,
         "avatar": avatar,
         "district": (

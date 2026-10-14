@@ -5,6 +5,7 @@ from datetime import datetime
 
 from app.modules.catalog.api import CatalogApi, RiskLevel
 from app.modules.geo.api import GeoApi
+from app.modules.identity.api import NameLooksLikeContactError
 from app.modules.specialists.api import PriceList
 from app.modules.specialists.application.ports import ProfileRepository
 from app.modules.specialists.domain.portfolio import PortfolioItem, WorkStatus
@@ -19,6 +20,7 @@ from app.platform.contracts.events.moderation import ModerationRequested
 from app.platform.db.port import UnitOfWork
 from app.platform.kernel.geo import GeoPoint
 from app.platform.kernel.ids import CategoryId, CityId, DistrictId, UserId
+from app.platform.text.contact_masking import name_looks_like_contact
 
 PROFILE = "profile"
 """Тип объекта в модерации (`moderation.cases.entity_type`)."""
@@ -34,6 +36,17 @@ async def own_profile(
         raise ProfileNotFoundError(user_id=user_id)
     profile.ensure_version(expected_version)
     return profile
+
+
+def ensure_safe_name(display_name: str | None, *, current: str | None = None) -> None:
+    """Имя профиля, которое вводит исполнитель (S34), похоже на контакт или ник — 422
+    `name_looks_like_contact`, то же правило, что у имени аккаунта (B3). Прежнее имя (так звали
+    до правила) повторить можно: правка «о себе» не падает из-за него."""
+    if display_name is None:
+        return
+    name = " ".join(display_name.split())
+    if name and name != current and name_looks_like_contact(name):
+        raise NameLooksLikeContactError(field="display_name")
 
 
 def request_review(uow: UnitOfWork, profile: Profile, *, edit: bool, now: datetime) -> None:

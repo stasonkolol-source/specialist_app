@@ -37,6 +37,7 @@ from app.platform.contracts.events.identity import UserRegistered
 from app.platform.contracts.events.jobs import JobPublished
 from app.platform.contracts.events.media import MediaReady
 from app.platform.contracts.events.moderation import CaseOpened, ModerationRequested
+from app.platform.contracts.events.pricing import PriceListChanged
 from app.platform.kernel.ids import CaseId, MediaId, UserId
 from app.platform.kernel.pagination import Page, PageRequest
 from app.platform.queue.port import TaskRef
@@ -216,6 +217,9 @@ class TargetContent:
     visible: bool = False
     """Объект уже виден (сообщение чата, 6.3a): признак нарушения скрывает его до решения
     модератора, одобрение возвращает."""
+    profile_case: UUID | None = None
+    """Работа нового профиля (B5, Q34): повод — в кейс этого профиля, а не свой кейс работы;
+    «Одобрить профиль» опубликует и её."""
 
 
 class ModerationTarget(Protocol):
@@ -325,6 +329,9 @@ class StaffCaseQuery(Protocol):
 
 AUTO_CHECK: Final = TaskRef("moderation.auto_check", ModerationRequested)
 """Подписчик ModerationRequested: автопроверка объекта (§14.1)."""
+CHECK_PRICE_LIST: Final = TaskRef("moderation.check_price_list", PriceListChanged)
+"""Подписчик PriceListChanged: прайс — часть текста профиля, его правка — пост-модерация
+профиля (B3)."""
 
 RECORD_REREGISTRATION: Final = TaskRef("moderation.record_reregistration", UserRegistered)
 """Подписчик UserRegistered: повторная регистрация после удаления — сигнал риска (2.12)."""

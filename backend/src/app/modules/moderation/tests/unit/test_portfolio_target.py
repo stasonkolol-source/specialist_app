@@ -1,5 +1,6 @@
 """Адаптер цели «работа портфолио» (DEVELOPMENT_PLAN 6.7): подпись проверяется, когда фото
-прошло проверку; портфолио нового профиля — всегда человек; решения — через фасад specialists."""
+прошло проверку; портфолио нового профиля — всегда человек, в кейсе профиля (B5); решения —
+через фасад specialists."""
 
 from collections.abc import Mapping
 from typing import Any, Self, cast
@@ -16,6 +17,7 @@ from app.platform.kernel.ids import MediaId, UserId, new_id
 
 OWNER = UserId(new_id())
 MEDIA = MediaId(new_id())
+PROFILE = new_id()
 
 
 class Transactions:
@@ -69,7 +71,11 @@ class Specialists:
 
 
 def review(
-    *, pending: bool = True, new_profile: bool = False, caption: str | None = "Люстра"
+    *,
+    pending: bool = True,
+    new_profile: bool = False,
+    caption: str | None = "Люстра",
+    profile_status: str = "published",
 ) -> Any:
     return WorkForReview(
         user_id=OWNER,
@@ -79,6 +85,8 @@ def review(
         pending=pending,
         new_profile=new_profile,
         risk_level=1,
+        profile_id=PROFILE,
+        profile_status=profile_status,
     )
 
 
@@ -125,13 +133,34 @@ async def test_waits_while_the_photo_is_unchecked_flagged_or_hidden(
     assert await adapter.content(new_id()) is None
 
 
-async def test_portfolio_of_a_new_profile_always_goes_to_a_human() -> None:
+async def test_portfolio_of_a_new_profile_goes_to_the_profile_case() -> None:
+    """B5, Q34: работа профиля на первой проверке — повод в кейс профиля, а не свой кейс; ждать
+    фото не нужно: модератор профиля увидит его в том же кейсе."""
+    work = review(new_profile=True, caption=None, profile_status="pending_review")
+    adapter, _, uow = target(work, None)
+
+    content = await adapter.content(new_id())
+
+    assert content is not None
+    assert (content.text, content.always_review, content.profile_case) == ("", True, PROFILE)
+    assert content.media_ids == (MEDIA,)
+    assert uow.opened == 0
+
+
+async def test_portfolio_of_a_draft_profile_waits_for_the_profile() -> None:
+    work = review(new_profile=True, profile_status="draft")
+    adapter, _, _ = target(work, ModerationVerdict.APPROVED)
+
+    assert await adapter.content(new_id()) is None  # проверят вместе с профилем при отправке
+
+
+async def test_portfolio_of_a_never_published_visible_profile_still_goes_to_a_human() -> None:
     adapter, _, _ = target(review(new_profile=True, caption=None), ModerationVerdict.APPROVED)
 
     content = await adapter.content(new_id())
 
     assert content is not None
-    assert (content.text, content.always_review) == ("", True)
+    assert (content.text, content.always_review, content.profile_case) == ("", True, None)
 
 
 async def test_caption_edit_of_published_work_is_post_moderated() -> None:

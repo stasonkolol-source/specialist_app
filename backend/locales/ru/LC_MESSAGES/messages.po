@@ -425,6 +425,9 @@ msgstr "Запрос на удаление уже обрабатывается. 
 msgid "errors.invalid_display_name"
 msgstr "Имя не может быть пустым."
 
+msgid "errors.name_looks_like_contact"
+msgstr "Имя похоже на контакт или ник. Укажите только имя — контакты откроются после договорённости."
+
 msgid "errors.consent_required"
 msgstr "Чтобы продолжить, примите правила площадки и политику конфиденциальности."
 
@@ -1038,6 +1041,12 @@ msgstr "Заявка закрыта без выбора"
 msgid "notifications.response_job_closed.body"
 msgstr "Заявка «{title}». Спасибо за отклик — в ленте есть другие заявки рядом."
 
+msgid "notifications.response_job_full.title"
+msgstr "Мест на заявке не осталось"
+
+msgid "notifications.response_job_full.body"
+msgstr "Заявка «{title}». Пока отклик проверяли, места на заявке закончились — в ленте есть другие заявки рядом."
+
 msgid "notifications.response_declined.title"
 msgstr "Клиент отклонил отклик"
 
@@ -1641,6 +1650,12 @@ msgstr "Заявка"
 
 msgid "bot.moderation.field.availability"
 msgstr "Когда сможет"
+
+msgid "bot.moderation.field.prices"
+msgstr "Прайс"
+
+msgid "bot.moderation.field.works"
+msgstr "Работы на проверке"
 
 msgid "bot.moderation.why.report"
 msgstr "жалоба: {reason}"

@@ -20,6 +20,7 @@ from app.modules.identity.errors import (
     AccountDeletedError,
     InvalidDisplayNameError,
     InvalidPhoneContactError,
+    NameLooksLikeContactError,
     UserAlreadyDeletedError,
 )
 from app.platform.contracts.events.identity import PhoneVerified, UserRegistered, UserUpdated
@@ -160,6 +161,39 @@ def test_update_profile_changes_name_and_locale_with_event() -> None:
     assert event.fields == ("display_name", "ui_locale")
     user.update_profile(display_name="Ana P.", ui_locale=None, now=NOW)
     assert user.pull_events() == []
+
+
+def test_telegram_name_that_looks_like_a_contact_is_replaced_not_refused() -> None:
+    """B3: имя из Telegram человек мог не выбирать — вход не отклоняем, а показываем «Сосед»; в
+    событии — отметка для сигнала риска."""
+    user = register(display_name="Ivan t.me/ivan_master")
+
+    assert user.display_name == FALLBACK_DISPLAY_NAME
+    [event] = user.pull_events()
+    assert isinstance(event, UserRegistered)
+    assert event.contact_in_name is True
+    [plain] = register().pull_events()
+    assert isinstance(plain, UserRegistered)
+    assert plain.contact_in_name is False
+
+
+@pytest.mark.parametrize("name", ["ivan_99", "@ivan", "064 123 4567", "majstor.rs"])
+def test_own_name_that_looks_like_a_contact_is_refused(name: str) -> None:
+    user = register()
+
+    with pytest.raises(NameLooksLikeContactError):
+        user.update_profile(display_name=name, now=NOW)
+
+    assert user.display_name == "Ana Petrović"
+
+
+def test_old_name_from_before_the_rule_does_not_block_other_changes() -> None:
+    user = register()
+    user.display_name = "ivan_99"  # так звали до правила B3
+
+    user.update_profile(display_name="ivan_99", home_city_id=CityId(7), now=NOW)
+
+    assert (user.display_name, user.home_city_id) == ("ivan_99", 7)
 
 
 def test_update_profile_sets_city_and_intent_from_onboarding() -> None:

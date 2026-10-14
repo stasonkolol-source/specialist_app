@@ -20,6 +20,7 @@ from app.modules.identity.errors import (
     AccountDeletedError,
     InvalidDisplayNameError,
     InvalidPhoneContactError,
+    NameLooksLikeContactError,
     UserAlreadyDeletedError,
 )
 from app.platform.contracts.events.identity import (
@@ -33,6 +34,7 @@ from app.platform.kernel.aggregate import StatusChange, VersionedAggregate
 from app.platform.kernel.errors import ConflictError, ProgrammingError
 from app.platform.kernel.ids import CityId, UserId, new_id
 from app.platform.kernel.localized import Locale
+from app.platform.text.contact_masking import name_looks_like_contact
 
 MAX_DISPLAY_NAME = 64
 DEFAULT_TIMEZONE = "Europe/Belgrade"
@@ -109,6 +111,27 @@ def clean_display_name(*parts: str | None) -> str:
     return normalize_display_name(*parts) or FALLBACK_DISPLAY_NAME
 
 
+def safe_display_name(*parts: str | None) -> tuple[str, bool]:
+    """Имя нового аккаунта из профиля провайдера и заменено ли оно. Похожее на контакт или ник
+    («ivan_99», «Иван t.me/x», телефон) не показываем: вход не отклоняем — имя из Telegram
+    человек мог не выбирать, — а ставим нейтральное «Сосед»; поменять его можно в S43 (B3)."""
+    name = clean_display_name(*parts)
+    if name_looks_like_contact(name):
+        return FALLBACK_DISPLAY_NAME, True
+    return name, False
+
+
+def checked_display_name(value: str) -> str:
+    """Имя, которое человек вводит сам: пустое — 422 `invalid_display_name`, похожее на контакт
+    или ник — 422 `name_looks_like_contact` (B3)."""
+    name = normalize_display_name(value)
+    if not name:
+        raise InvalidDisplayNameError(field="display_name")
+    if name_looks_like_contact(name):
+        raise NameLooksLikeContactError(field="display_name")
+    return name
+
+
 @dataclass(kw_only=True)
 class AuthIdentity:
     """Способ входа внутри агрегата. Равенство по полям: снимок UoW сравнивает состояние."""
@@ -181,11 +204,14 @@ class User(VersionedAggregate):
         had_sanctions: bool = False,
     ) -> User:
         """Новый аккаунт. `entry_point` и `start_param` — первое касание (атрибуция в growth);
-        `reregistered` — этот способ входа был у аккаунта, удалённого за последние 12 месяцев."""
+        `reregistered` — этот способ входа был у аккаунта, удалённого за последние 12 месяцев.
+        Имя, похожее на контакт или ник, заменяется на «Сосед» (`safe_display_name`): в событии
+        — `contact_in_name`, модерация запишет сигнал риска."""
+        name, contact_in_name = safe_display_name(display_name)
         user = cls(
             id=UserId(new_id()),
             status=UserStatus.ACTIVE,
-            display_name=clean_display_name(display_name),
+            display_name=name,
             ui_locale=ui_locale,
             timezone=DEFAULT_TIMEZONE,
             trust_level=0,
@@ -211,6 +237,7 @@ class User(VersionedAggregate):
                 start_param=start_param,
                 reregistered=reregistered,
                 had_sanctions=had_sanctions,
+                contact_in_name=contact_in_name,
                 occurred_at=now,
             )
         )
@@ -247,7 +274,9 @@ class User(VersionedAggregate):
         home_city_id: CityId | None = None,
         intent: UserIntent | None = None,
     ) -> None:
-        """Имя, язык интерфейса, город и намерение; None — поле не меняется."""
+        """Имя, язык интерфейса, город и намерение; None — поле не меняется. Новое имя,
+        похожее на контакт или ник, — 422 `name_looks_like_contact`; прежнее (так звали до
+        правила) повторить можно: правка города не должна падать из-за него."""
         self.ensure_active()
         changed: list[str] = []
         if display_name is not None:
@@ -255,7 +284,7 @@ class User(VersionedAggregate):
             if not name:
                 raise InvalidDisplayNameError(field="display_name")
             if name != self.display_name:
-                self.display_name = name
+                self.display_name = checked_display_name(name)
                 changed.append("display_name")
         if ui_locale is not None and ui_locale is not self.ui_locale:
             self.ui_locale = ui_locale

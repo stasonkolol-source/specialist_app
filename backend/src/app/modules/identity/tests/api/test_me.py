@@ -81,6 +81,19 @@ async def test_invisible_name_is_rejected_by_domain(
     assert response.json()["code"] == "invalid_display_name"
 
 
+async def test_name_that_looks_like_a_contact_is_refused_with_a_reason(
+    api: httpx.AsyncClient, init_data: InitData
+) -> None:
+    """B3: имя видят до договорённости — ник и контакт в нём не пропускаем, с понятным текстом."""
+    tokens = await login(api, init_data())
+    response = await api.patch(
+        "/api/v1/me", headers=bearer(tokens), json={"display_name": "ivan_master99"}
+    )
+    assert response.status_code == 422
+    assert response.json()["code"] == "name_looks_like_contact"
+    assert response.json()["detail"] not in ("", "name_looks_like_contact")  # текст причины
+
+
 async def test_phone_verification_gives_the_badge_without_the_number(
     api: httpx.AsyncClient,
     init_data: InitData,

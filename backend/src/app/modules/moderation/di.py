@@ -99,6 +99,7 @@ from app.modules.moderation.infrastructure.targets.profile import ProfileTarget
 from app.modules.moderation.infrastructure.targets.response import ResponseTarget
 from app.modules.moderation.infrastructure.targets.review import ReviewReplyTarget, ReviewTarget
 from app.modules.moderation.infrastructure.velocity import ValkeyVelocityCounter
+from app.modules.pricing.api import PricingApi
 from app.modules.reviews.api import ReviewsApi
 from app.modules.specialists.api import SpecialistsApi
 from app.platform.config.port import LegalVersions
@@ -175,6 +176,7 @@ class ModerationProvider(Provider):
         messaging: MessagingApi,
         reviews: ReviewsApi,
         media: MediaModeration,
+        pricing: PricingApi,
         uow: UnitOfWork,
     ) -> ModerationTargets:
         """Адаптеры целей: контентные модули добавляют свои в своих шагах."""
@@ -182,7 +184,7 @@ class ModerationProvider(Provider):
             {
                 EntityType.MEDIA: MediaTarget(media, specialists),
                 EntityType.PORTFOLIO: PortfolioTarget(uow, specialists, media),
-                EntityType.PROFILE: ProfileTarget(specialists),
+                EntityType.PROFILE: ProfileTarget(specialists, pricing, media),
                 EntityType.JOB: JobTarget(jobs),
                 EntityType.RESPONSE: ResponseTarget(jobs),
                 EntityType.MESSAGE: MessageTarget(messaging),
@@ -245,6 +247,7 @@ class ModerationProvider(Provider):
         session: AsyncSession,
         identity: IdentityApi,
         specialists: SpecialistsApi,
+        pricing: PricingApi,
         jobs: JobsApi,
         messaging: MessagingApi,
         reviews: ReviewsApi,
@@ -261,6 +264,7 @@ class ModerationProvider(Provider):
             session,
             identity,
             specialists,
+            pricing,
             jobs,
             messaging,
             reviews,

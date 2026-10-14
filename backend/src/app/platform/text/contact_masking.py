@@ -20,6 +20,8 @@ Shared kernel: чистые функции без БД. Им пользуютс�
   @username Telegram (и «tg @ ivan», «tg: ivan_master» после названия мессенджера);
 - IBAN (по модулю 97).
 Предоплату (`find_prepayment`) не маскируют: это сигнал для правил, а не контакт.
+Имя аккаунта и профиля строже текста (`name_looks_like_contact`): кроме контактов, в нём не
+бывает «@», ссылки на Telegram, пяти цифр, домена и ника — латиницы с «_» или цифрой.
 
 Даты («12.10.2026»), время в диапазонах и после предлогов («08.00-16.00», «с 9:00»), цены
 («1 000 000 RSD», «1000, 1200, 1800 din», «2000 2500 3000 3500»), размеры («0 60 120 180»),
@@ -480,6 +482,34 @@ def _domains(folded: str, found: Sequence[Finding]) -> tuple[str, ...]:
         if "." in host:
             domains.append(host)
     return tuple(dict.fromkeys(domains))
+
+
+_NAME_TOKEN = re.compile(r"[A-Za-z0-9_]+")
+_NAME_DOMAIN = re.compile(r"[a-z0-9\-]{2,}\.[a-z]{2,}")
+"""Домен в имени: «ivan.master», «majstor.rs» — до точки два знака и больше, после — строчные
+(«A.Petrović», «Dr.Ivan» — не домен)."""
+_NAME_TELEGRAM = re.compile(r"(?i)\bt\s*\.\s*me\b")
+NAME_DIGITS = 5
+"""Столько цифр в имени — уже телефон или ник, а не имя («Иван 2» — имя)."""
+
+
+def name_looks_like_contact(name: str) -> bool:
+    """Похоже ли имя (аккаунта, профиля) на контакт или ник: контакт по детектору, «@», t.me,
+    NAME_DIGITS цифр, домен или ник — слово латиницей с «_» или цифрой («ivan_99», «master2»).
+    Имя показывается другим людям до договорённости — в нём контакт прошёл бы мимо маскировки
+    переписки. Двойники-кириллица в латинском слове и полноширинные знаки сворачиваются, как у
+    контактов."""
+    folded = _fold(name).text
+    if "@" in folded or _NAME_TELEGRAM.search(folded) or _NAME_DOMAIN.search(folded):
+        return True
+    if sum(char.isdigit() for char in folded) >= NAME_DIGITS:
+        return True
+    for token in _NAME_TOKEN.findall(folded):
+        letters = any(char.isalpha() for char in token)
+        marks = "_" in token or any(char.isdigit() for char in token)
+        if letters and marks and len(token) >= 3:
+            return True
+    return bool(_find_folded(folded))
 
 
 def find_prepayment(text: str) -> bool:

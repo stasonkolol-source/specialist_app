@@ -12,6 +12,7 @@ from typing import Protocol
 from app.modules.identity.errors import AccountDeletedError as AccountDeletedError
 from app.modules.identity.errors import ConsentRequiredError as ConsentRequiredError
 from app.modules.identity.errors import InvalidRestrictionError as InvalidRestrictionError
+from app.modules.identity.errors import NameLooksLikeContactError as NameLooksLikeContactError
 from app.modules.identity.errors import UserNotFoundError as UserNotFoundError
 from app.platform.contracts.events.identity import RestrictionKind as RestrictionKind
 from app.platform.kernel.ids import CaseId, CityId, RestrictionId, UserId

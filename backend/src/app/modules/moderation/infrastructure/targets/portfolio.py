@@ -11,11 +11,17 @@
 Автопроверка публикует только ждущую проверки работу (`auto`), а скрытую модератором, пока она
 шла, возвращает только решение модератора. Риск — самый строгий из
 категорий профиля, как у профиля. Хранилище не нужно: решение модератора работает и в боте.
+
+Работа нового профиля (B5, Q34) — не свой кейс: подпись проверяется сразу, не дожидаясь фото,
+и повод с фото уходит в кейс профиля (`profile_case`), пока профиль на проверке; «Одобрить
+профиль» публикует работу (targets/profile.py). Профиль ещё черновик — проверять рано: работу
+проверят вместе с ним, когда его отправят.
 """
 
 from uuid import UUID
 
 from app.modules.media.api import MediaModeration, ModerationVerdict
+from app.modules.moderation.application.new_profile import DRAFT, PENDING_REVIEW, with_profile
 from app.modules.moderation.application.ports import ModerationTarget, TargetContent
 from app.modules.specialists.api import SpecialistsApi
 from app.platform.ai.port import ContentKind
@@ -32,6 +38,18 @@ class PortfolioTarget(ModerationTarget):
         work = await self._specialists.work_for_review(entity_id)
         if work is None:
             return None
+        if with_profile(work) and work.profile_status == DRAFT:
+            return None  # черновик: проверим вместе с профилем, когда его отправят
+        if with_profile(work) and work.profile_status == PENDING_REVIEW:
+            return TargetContent(
+                author_id=work.user_id,
+                kind=ContentKind.PROFILE,
+                text=work.caption or "",
+                media_ids=(work.media_id,),
+                always_review=True,
+                risk_level=work.risk_level,
+                profile_case=work.profile_id,
+            )
         if work.pending:
             async with self._uow:
                 verdict = await self._media.verdict(work.media_id)
@@ -43,7 +61,7 @@ class PortfolioTarget(ModerationTarget):
             text=work.caption or "",
             media_ids=(work.media_id,),
             version=work.revision,
-            always_review=work.pending and work.new_profile,
+            always_review=with_profile(work),  # профиль без проверки: всё равно человек
             risk_level=work.risk_level,
         )
 

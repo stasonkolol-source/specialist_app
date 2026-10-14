@@ -154,17 +154,18 @@ async def test_without_ai_keys_text_is_judged_by_stop_rules(moderation: Moderati
 
 
 async def test_without_ai_keys_chat_message_opens_no_case(moderation: Moderation) -> None:
-    """Сообщение чата без ключей AI: чистое остаётся видно и кейса не открывает; выборка
-    новичков (страховка) — та же, что с ключами."""
+    """Сообщение чата без ключей AI: чистое остаётся видно и кейса не открывает. В выборку
+    новичков сообщения не идут даже при доле 100 % (B5): их на порядок больше всего остального,
+    а пропуски ловят жалобы и детекторы."""
     moderation.omni.result = NO_KEY
     moderation.classifier.verdict = NO_KEY
     moderation.flags.values[SAMPLE_RATE_FLAG] = 0.0
     newcomer = await moderation.user()
 
     async def check(text: str) -> UUID:
-        message = moderation.jobs.add(newcomer, text, kind=ContentKind.MESSAGE, visible=True)
+        message = moderation.messages.add(newcomer, text, kind=ContentKind.MESSAGE, visible=True)
         routing = await moderation.auto_check(
-            AutoCheckCommand(entity_type=EntityType.JOB, entity_id=message, author_id=newcomer)
+            AutoCheckCommand(entity_type=EntityType.MESSAGE, entity_id=message, author_id=newcomer)
         )
         assert routing is not None
         assert routing.route is Route.PUBLISH
@@ -172,11 +173,28 @@ async def test_without_ai_keys_chat_message_opens_no_case(moderation: Moderation
 
     quiet = await check("Буду в 19:00, захвачу стремянку")
     moderation.flags.values[SAMPLE_RATE_FLAG] = 1.0
-    sampled = await check("Спасибо, до завтра")
+    unsampled = await check("Спасибо, до завтра")
 
-    assert moderation.jobs.hidden == []
+    assert moderation.messages.hidden == []
     assert await cases_of(moderation, quiet) == []
-    assert await cases_of(moderation, sampled) == [("premod", "auto_flag", "pending", ["sample"])]
+    assert await cases_of(moderation, unsampled) == []
+
+
+async def test_profile_edit_is_not_sampled(moderation: Moderation) -> None:
+    """Выборка после публикации — только заявки, отклики и отзывы (B5)."""
+    moderation.flags.values[SAMPLE_RATE_FLAG] = 1.0
+    newcomer = await moderation.user()
+    profile = moderation.profiles.add(newcomer, "Электрик, 10 лет", kind=ContentKind.PROFILE)
+
+    routing = await moderation.auto_check(
+        AutoCheckCommand(
+            entity_type=EntityType.PROFILE, entity_id=profile, author_id=newcomer, edit=True
+        )
+    )
+
+    assert routing is not None
+    assert (routing.route, routing.post_review) == (Route.PUBLISH, False)
+    assert await cases_of(moderation, profile) == []
 
 
 async def test_p0_is_hidden_and_the_account_frozen(moderation: Moderation) -> None:

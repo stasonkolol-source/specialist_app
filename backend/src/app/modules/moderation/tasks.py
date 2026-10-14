@@ -1,10 +1,12 @@
 """Задачи moderation (ADR-0020 §3).
 
 - `moderation.auto_check` — ModerationRequested: автопроверка объекта (§14.1, план 2.6).
+- `moderation.check_price_list` — PriceListChanged: прайс — часть текста профиля, его правка —
+  автопроверка профиля как правки (B3).
 - `moderation.rate_limit_signals` — раз в 15 минут: сигналы риска по систематическим 429
   (ARCHITECTURE §13.3).
 - `moderation.record_reregistration` — UserRegistered: повторная регистрация после удаления
-  аккаунта — сигнал риска (§7.10).
+  аккаунта (§7.10) и имя из Telegram, похожее на контакт (B3), — сигналы риска.
 - Споры по сделкам (6.1c): `moderation.open_dispute_case` (DealDisputed) — кейс `dispute`,
   `moderation.note_dispute_answer` (DisputeAnswered) и `moderation.note_dispute_unanswered`
   (DisputeUnanswered) — поводы «ответ» и «нет ответа», `moderation.close_dispute_case`
@@ -29,6 +31,7 @@ from app.modules.moderation.application.ports import (
     AUTO_CHECK,
     CHECK_DUPLICATES,
     CHECK_IMAGE,
+    CHECK_PRICE_LIST,
     CLOSE_DISPUTE_CASE,
     NOTE_DISPUTE_ANSWER,
     NOTE_DISPUTE_UNANSWERED,
@@ -91,6 +94,7 @@ from app.platform.contracts.events.identity import UserRegistered
 from app.platform.contracts.events.jobs import JobPublished
 from app.platform.contracts.events.media import MediaReady
 from app.platform.contracts.events.moderation import CaseOpened, ModerationRequested
+from app.platform.contracts.events.pricing import PriceListChanged
 from app.platform.queue.tasks import PeriodicRun, periodic, subscriber, task
 
 
@@ -106,6 +110,19 @@ async def auto_check(event: ModerationRequested, check: FromDishka[AutoCheck]) -
     )
 
 
+@subscriber(PriceListChanged, CHECK_PRICE_LIST)
+async def check_price_list(event: PriceListChanged, check: FromDishka[AutoCheck]) -> None:
+    """Прайс изменился: профиль снова проходит автопроверку — уже с новыми позициями."""
+    await check(
+        AutoCheckCommand(
+            entity_type=EntityType.PROFILE,
+            entity_id=event.profile_id,
+            author_id=event.user_id,
+            edit=True,
+        )
+    )
+
+
 @subscriber(UserRegistered, RECORD_REREGISTRATION)
 async def record_reregistration(
     event: UserRegistered, record: FromDishka[RecordReregistration]
@@ -115,6 +132,7 @@ async def record_reregistration(
             user_id=event.user_id,
             reregistered=event.reregistered,
             had_sanctions=event.had_sanctions,
+            contact_in_name=event.contact_in_name,
         )
     )
 

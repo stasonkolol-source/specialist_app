@@ -1,11 +1,19 @@
 """Реализация SpecialistsApi (ADR-0020 §6): проверка профиля и работ портфолио для модерации,
-профили для поиска."""
+профили для поиска.
+
+Публичные тексты (B3, S-вариант снимка одобренной версии): правка опубликованного профиля видна
+сразу, а проверяется после — поэтому имя показывается с маской контактов всегда, а заголовок,
+«о себе» и подписи работ автора с уровнем доверия ≤ 1 — тоже с маской. Модерация читает профиль
+без маски (`profile_for_review`, `profiles_for_index`)."""
 
 from collections.abc import Collection
+from dataclasses import replace
 from uuid import UUID
 
 from app.modules.catalog.api import CatalogApi
+from app.modules.identity.api import IdentityApi
 from app.modules.specialists.api import (
+    MASKED_TRUST_LEVEL,
     PortfolioWorkRef,
     ProfileForIndex,
     ProfileForReview,
@@ -13,6 +21,7 @@ from app.modules.specialists.api import (
     PublicCard,
     PublicProfile,
     SpecialistsApi,
+    WaitingWork,
     WorkForReview,
 )
 from app.modules.specialists.application.ports import (
@@ -22,12 +31,13 @@ from app.modules.specialists.application.ports import (
     ProfileRepository,
 )
 from app.modules.specialists.application.profiles import request_work_review
-from app.modules.specialists.domain.portfolio import WorkStatus
+from app.modules.specialists.domain.portfolio import PortfolioItem, WorkStatus
 from app.modules.specialists.domain.profile import ProfileId, ProfileStatus
 from app.modules.specialists.errors import ProfileNotFoundError
 from app.platform.db.port import UnitOfWork
 from app.platform.kernel.clock import Clock
 from app.platform.kernel.ids import MediaId, UserId
+from app.platform.text.contact_masking import mask_contacts
 
 REVIEWABLE = frozenset(
     {ProfileStatus.PENDING_REVIEW, ProfileStatus.PUBLISHED, ProfileStatus.HIDDEN}
@@ -43,11 +53,12 @@ class SpecialistsFacade(SpecialistsApi):
         portfolio: PortfolioQuery,
         works: PortfolioRepository,
         catalog: CatalogApi,
+        identity: IdentityApi,
         clock: Clock,
     ) -> None:
         self._uow, self._profiles, self._query = uow, profiles, query
         self._portfolio, self._works = portfolio, works
-        self._catalog, self._clock = catalog, clock
+        self._catalog, self._identity, self._clock = catalog, identity, clock
 
     async def profile_of(self, user_id: UserId) -> ProfileRef | None:
         view = await self._query.of_user(user_id)
@@ -62,10 +73,40 @@ class SpecialistsFacade(SpecialistsApi):
         return await self._query.for_index(profile_ids)
 
     async def public_profile(self, profile_id: UUID) -> PublicProfile | None:
-        return await self._query.public(profile_id)
+        profile = await self._query.public(profile_id)
+        if profile is None:
+            return None
+        name = mask_contacts(profile.display_name)
+        author = await self._identity.get_user(profile.user_id)
+        if author is not None and author.trust_level > MASKED_TRUST_LEVEL:
+            return replace(profile, display_name=name)
+        return replace(
+            profile,
+            masked=True,
+            display_name=name,
+            headline=_masked(profile.headline),
+            about=_masked(profile.about),
+            works=tuple(replace(work, caption=_masked(work.caption)) for work in profile.works),
+        )
 
     async def public_cards(self, profile_ids: Collection[UUID]) -> dict[UUID, PublicCard]:
-        return await self._query.public_cards(profile_ids) if profile_ids else {}
+        cards = await self._query.public_cards(profile_ids) if profile_ids else {}
+        return {
+            profile_id: replace(card, display_name=mask_contacts(card.display_name))
+            for profile_id, card in cards.items()
+        }
+
+    async def untrusted(self, profile_ids: Collection[UUID]) -> frozenset[UUID]:
+        cards = await self._query.public_cards(profile_ids) if profile_ids else {}
+        if not cards:
+            return frozenset()
+        authors = await self._identity.users({card.user_id for card in cards.values()})
+        return frozenset(
+            profile_id
+            for profile_id, card in cards.items()
+            if (author := authors.get(card.user_id)) is None
+            or author.trust_level <= MASKED_TRUST_LEVEL
+        )
 
     async def published_profile_ids(self, *, after: UUID | None, limit: int) -> list[UUID]:
         return await self._query.published_ids(after=after, limit=limit)
@@ -89,8 +130,21 @@ class SpecialistsFacade(SpecialistsApi):
         if profile.status not in REVIEWABLE:
             return None
         categories = await self._catalog.categories(profile.category_ids)
+        # работы нового профиля проверяет тот же модератор в кейсе профиля (B5)
+        waiting = (
+            await self._waiting(profile.id)
+            if profile.first_review and profile.published_at is None
+            else []
+        )
         text = "\n".join(
-            part for part in (profile.display_name, profile.headline, profile.about) if part
+            part
+            for part in (
+                profile.display_name,
+                profile.headline,
+                profile.about,
+                *(item.caption for item in waiting),
+            )
+            if part
         )
         return ProfileForReview(
             user_id=profile.user_id,
@@ -98,16 +152,33 @@ class SpecialistsFacade(SpecialistsApi):
             version=profile.revision,
             first_review=profile.first_review,
             risk_level=max((int(c.risk_level) for c in categories), default=0),
+            media_ids=tuple(item.media_id for item in waiting),
         )
 
-    async def approve_profile(self, profile_id: UUID, *, version: int | None) -> None:
+    async def approve_profile(self, profile_id: UUID, *, version: int | None) -> bool:
         self._uow.require_active()
         try:
             profile = await self._profiles.get_for_update(ProfileId(profile_id))
         except ProfileNotFoundError:
-            return
-        if profile.approve(now=self._clock.now(), version=version):
-            await self._profiles.save(profile)
+            return False
+        if not profile.approve(now=self._clock.now(), version=version):
+            return False
+        await self._profiles.save(profile)
+        return True
+
+    async def waiting_works(self, profile_id: UUID) -> list[WaitingWork]:
+        found = await self._query.for_index([profile_id])
+        if not found or found[0].published_at is not None:
+            return []
+        return [
+            WaitingWork(
+                id=item.id, media_id=item.media_id, caption=item.caption, revision=item.revision
+            )
+            for item in await self._waiting(profile_id)
+        ]
+
+    async def _waiting(self, profile_id: UUID) -> list[PortfolioItem]:
+        return [item for item in await self._portfolio.of_profile(profile_id) if item.pending]
 
     async def reject_profile(self, profile_id: UUID, *, reason_code: str) -> None:
         self._uow.require_active()
@@ -135,6 +206,8 @@ class SpecialistsFacade(SpecialistsApi):
             pending=item.pending,
             new_profile=profile.published_at is None,
             risk_level=max((int(c.risk_level) for c in categories), default=0),
+            profile_id=profile.id,
+            profile_status=profile.status,
         )
 
     async def approve_work(
@@ -167,3 +240,7 @@ class SpecialistsFacade(SpecialistsApi):
                 request_work_review(self._uow, item, owner, now=now)
                 requested += 1
         return requested
+
+
+def _masked(text: str | None) -> str | None:
+    return mask_contacts(text) if text else text
