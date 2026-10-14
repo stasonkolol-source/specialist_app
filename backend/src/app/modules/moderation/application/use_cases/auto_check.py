@@ -5,7 +5,9 @@ omni-moderation → классификатор (уровень доверия 0 
 - публикация (у уровня 0 — с выборочной проверкой после неё);
 - очередь: кейс P0/P1/P2, объект ждёт решения модератора;
 - P0 по правилам: скрыть, заморозить аккаунт (приостановка до решения), кейс safety.
-Внешние вызовы — до транзакции; публикация или скрытие, кейс и заморозка — в одной.
+Внешние вызовы — до транзакции; публикация или скрытие, кейс, заморозка и сигналы риска
+(просьба о предоплате, контакты в чате — domain/risk.py) — в одной. Сообщение чата с просьбой
+о предоплате открывает кейс об авторе (pipeline.about_author): повторы за сутки — в тот же кейс.
 Решение записывается в audit_log. Модуль без адаптера цели (ещё не подключён) пропускается
 с ошибкой в логе.
 """
@@ -22,6 +24,7 @@ from app.modules.moderation.application.ports import (
     AutoCheckMetrics,
     ModerationTarget,
     ModerationTargets,
+    RiskSignals,
     TargetContent,
 )
 from app.modules.moderation.application.use_cases.open_case import CaseOpener, OpenCaseCommand
@@ -31,10 +34,13 @@ from app.modules.moderation.domain.pipeline import (
     Checks,
     Route,
     Routing,
+    about_author,
     needs_classifier,
     route,
     sampled,
 )
+from app.modules.moderation.domain.queues import Queue
+from app.modules.moderation.domain.risk import content_signals
 from app.platform.ai.port import Moderation, ModerationResult, PolicyClassifier
 from app.platform.audit.port import ActorKind, AuditEntry, AuditLog
 from app.platform.config.port import FeatureFlags
@@ -69,10 +75,12 @@ class AutoCheck:
         flags: FeatureFlags,
         metrics: AutoCheckMetrics,
         audit: AuditLog,
+        signals: RiskSignals,
     ) -> None:
         self._uow, self._targets, self._rules = uow, targets, rules
         self._moderation, self._classifier, self._opener = moderation, classifier, opener
         self._identity, self._flags, self._metrics, self._audit = identity, flags, metrics, audit
+        self._signals = signals
 
     async def __call__(self, cmd: AutoCheckCommand) -> Routing | None:
         """Маршрут объекта; None — проверять нечего (нет адаптера или объект уже не ждёт)."""
@@ -139,18 +147,7 @@ class AutoCheck:
             elif routing.route is Route.BLOCK or (routing.flagged and content.visible):
                 await target.hide(cmd.entity_id, reason_code=routing.reason_code or "other")
             if routing.queue is not None:
-                case_id = await self._opener.open(
-                    OpenCaseCommand(
-                        queue=routing.queue,
-                        entity_type=cmd.entity_type,
-                        entity_id=cmd.entity_id,
-                        subject_id=content.author_id,
-                        trigger=_trigger(cmd, routing),
-                        details={"signals": list(routing.signals)},
-                        media_ids=content.media_ids,
-                        entity_version=content.version,
-                    )
-                )
+                case_id = await self._opener.open(_case(cmd, content, routing, queue=routing.queue))
             if routing.route is Route.BLOCK and case_id is not None:
                 # P0: заморозить до решения (§14.2); модератор, одобрив, снимет заморозку
                 await self._identity.restrict(
@@ -161,6 +158,14 @@ class AutoCheck:
                         case_id=case_id,
                     )
                 )
+            await self._signals.add(
+                content_signals(
+                    author_id=content.author_id,
+                    entity_type=cmd.entity_type,
+                    entity_id=cmd.entity_id,
+                    signals=routing.signals,
+                )
+            )
             await self._audit.record(
                 AuditEntry(
                     action="moderation.auto_check",
@@ -181,6 +186,32 @@ class AutoCheck:
         if isinstance(value, int | float) and not isinstance(value, bool) and 0 <= value <= 1:
             return float(value)
         return SAMPLE_RATE
+
+
+def _case(
+    cmd: AutoCheckCommand, content: TargetContent, routing: Routing, *, queue: Queue
+) -> OpenCaseCommand:
+    """Кейс об объекте; о сообщении с просьбой о предоплате — об авторе (pipeline.about_author):
+    повтор за сутки дописывается в открытый кейс, id сообщения — в поводе («предоплата ×3»)."""
+    if about_author(cmd.entity_type, routing):
+        return OpenCaseCommand(
+            queue=queue,
+            entity_type=EntityType.USER,
+            entity_id=content.author_id,
+            subject_id=content.author_id,
+            trigger=CaseTrigger.AUTO_FLAG,
+            details={"signals": list(routing.signals), "message_id": str(cmd.entity_id)},
+        )
+    return OpenCaseCommand(
+        queue=queue,
+        entity_type=cmd.entity_type,
+        entity_id=cmd.entity_id,
+        subject_id=content.author_id,
+        trigger=_trigger(cmd, routing),
+        details={"signals": list(routing.signals)},
+        media_ids=content.media_ids,
+        entity_version=content.version,
+    )
 
 
 def _trigger(cmd: AutoCheckCommand, routing: Routing) -> CaseTrigger:

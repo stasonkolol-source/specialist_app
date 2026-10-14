@@ -38,13 +38,15 @@ from app.modules.moderation.application.dto import (
     PersonContext,
     ReportContext,
 )
-from app.modules.moderation.application.ports import CaseContextQuery, CasePhotos
+from app.modules.moderation.application.ports import CaseContextQuery, CasePhotos, RiskSignals
 from app.modules.moderation.domain.cases import Case, CaseTrigger, EntityType
 from app.modules.moderation.domain.reports import ReportStatus
+from app.modules.moderation.domain.risk import RISK_WINDOW, summarize
 from app.modules.moderation.infrastructure.models import CaseRow, ReportRow
 from app.modules.reviews.api import ReviewsApi
 from app.modules.specialists.api import SpecialistsApi
 from app.platform.db.query import SqlQuery
+from app.platform.kernel.clock import Clock
 from app.platform.kernel.errors import ExternalServiceError
 from app.platform.kernel.ids import CategoryId, DistrictId, MediaId, UserId
 from app.platform.text.names import short_name
@@ -52,6 +54,8 @@ from app.platform.text.names import short_name
 log = structlog.get_logger(__name__)
 
 CLIENT: Final = "client"
+MESSAGES_IN_CARD: Final = 3
+"""Кейс об аккаунте по сообщениям чата (просьба о предоплате, 2.6): в карточке — последние."""
 PHOTO_KINDS: Final[Mapping[str, str]] = {
     "avatar": "avatar",
     "portfolio": "portfolio_photo",
@@ -74,11 +78,14 @@ class FacadeCaseContext(SqlQuery, CaseContextQuery):
         deals: DealsApi,
         catalog: CatalogApi,
         geo: GeoApi,
+        signals: RiskSignals,
+        clock: Clock,
     ) -> None:
         super().__init__(session)
         self._identity, self._specialists, self._jobs = identity, specialists, jobs
         self._messaging, self._reviews, self._photos = messaging, reviews, photos
         self._deals, self._catalog, self._geo = deals, catalog, geo
+        self._signals, self._clock = signals, clock
 
     async def context(self, case: Case) -> CaseContext:
         found = await self._object(case)
@@ -124,7 +131,20 @@ class FacadeCaseContext(SqlQuery, CaseContextQuery):
             case EntityType.DISPUTE:
                 return _Found(CaseObject(kind="dispute"))
             case EntityType.USER:
-                return _Found(CaseObject(kind="user"))
+                return await self._user(case)
+
+    async def _user(self, case: Case) -> _Found:
+        """Кейс об аккаунте: сообщения чата из поводов (просьба о предоплате, 2.6) — последние
+        MESSAGES_IN_CARD, контакты в них маскирует карточка; у кейса по жалобе их нет."""
+        message_ids = [
+            UUID(str(entry["message_id"])) for entry in case.evidence if entry.get("message_id")
+        ]
+        fields: list[ContentField] = []
+        for message_id in list(dict.fromkeys(message_ids))[-MESSAGES_IN_CARD:]:
+            message = await self._messaging.message_for_card(message_id)
+            if message is not None:
+                fields.append(ContentField(name="message", text=message.text))
+        return _Found(CaseObject(kind="user", fields=tuple(fields)))
 
     async def _profile(self, case: Case) -> _Found:
         found = await self._specialists.profiles_for_index([case.entity_id])
@@ -207,6 +227,7 @@ class FacadeCaseContext(SqlQuery, CaseContextQuery):
             if indexed:
                 category = await self._category(indexed[0].category_ids)
                 district = await self._district(next(iter(indexed[0].area_ids), None))
+        since = self._clock.now() - RISK_WINDOW
         return PersonContext(
             name=short_name(name),
             role=role,
@@ -217,6 +238,7 @@ class FacadeCaseContext(SqlQuery, CaseContextQuery):
             deals_done=await self._deals.completed_deals(user_id),
             complaints_open=opened,
             complaints_total=total,
+            risk_signals=summarize(await self._signals.of_user(user_id, since=since)),
         )
 
     async def _reports(self, case: Case) -> tuple[ReportContext, ...]:

@@ -624,6 +624,67 @@ def test_calibration_prepayment_sums(text: str, asks: bool) -> None:
     assert find_prepayment(text) is asks
 
 
+@pytest.mark.parametrize(
+    ("text", "asks"),
+    [
+        # предварительная, частичная оплата; половина вперёд
+        ("Предварительная оплата 30%", True),
+        ("Нужна частичная оплата до начала", True),
+        ("Delimična uplata pre dolaska", True),
+        ("Половину вперёд, половину после", True),
+        ("Pola unapred, pola posle", True),
+        ("Половину до начала работ", True),
+        ("Polovinu sada, ostatak kasnije", True),
+        # бронь — рядом с датой, оплатой или «за»
+        ("Оплата брони 1000 динаров", True),
+        ("За бронь 500", True),
+        ("Бронь даты — 2000", True),
+        ("Бронирование даты стоит 1000", True),
+        ("Uplata za rezervaciju 20e", True),
+        # деньги на материалы — после денег или глагола перевода
+        ("Скиньте 3000 на материалы", True),
+        ("Деньги на материалы переведите сегодня", True),
+        ("Novac za materijal unapred", True),
+        ("На материалы вперёд 5000", True),
+        # кошелёк вне площадки — с суммой или глаголом перевода
+        ("5000 на Revolut", True),
+        ("Skinite mi 2000 na wise", True),
+        ("Send to my revolut", True),
+        ("Переведите 50e через wise", True),
+        ("Платите в крипте", True),
+        # просьба прислать реквизиты
+        ("Пришлите номер карты", True),
+        ("Pošaljite mi broj računa", True),
+        ("Send me your iban", True),
+        ("Дайте реквизиты, переведу", True),
+        # молчат: честные обороты и отрицание
+        ("Материалы покупаю сам", False),
+        ("Materijal kupujem sam", False),
+        ("Оплата после приёмки", False),
+        ("Rezervacija besplatna", False),
+        ("Wise choice", False),
+        ("Без предоплаты", False),
+        ("Без предварительной оплаты, всё по факту", False),
+        ("Предварительная оплата не нужна", False),
+        ("Частичная оплата возможна после работы", False),
+        ("Бронирую дату за вами", False),
+        ("Забронировал дату, жду", False),
+        ("Деньги на материалы отдадите после покупки", False),
+        ("Пришлите счёт за работу", False),
+        ("Pošaljite račun posle posla", False),
+        ("Half of the job is done", False),
+        ("Pola sata vožnje", False),
+        ("Nema potrebe za avansom", False),
+        ("Нет необходимости в предоплате", False),
+        ("Без всякой брони", False),
+    ],
+)
+def test_prepayment_phrases_without_the_word(text: str, asks: bool) -> None:
+    """Главный страх клиентов — предоплата без слова «предоплата»: половина вперёд, бронь, деньги
+    на материалы, кошельки вне площадки, просьба прислать реквизиты (B1, 2026-10-13)."""
+    assert find_prepayment(text) is asks
+
+
 def test_calibration_domains_fold_case_and_bio_hosts() -> None:
     assert find_domains("Sajt: Majstor.Rs i linktr.ee/ivan") == ("majstor.rs", "linktr.ee")
 

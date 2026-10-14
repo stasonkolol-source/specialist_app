@@ -97,7 +97,7 @@ rules:
     lang: en
     words: [money mule*, cash out, rent your card, rent your bank account,
             sell your bank account]
-  # --- мошенничество (кроме предоплаты — её ловит детектор) -----------------------------
+  # --- мошенничество (кроме слова «предоплата» — его ловит детектор) --------------------
   - category: scam
     action: flag
     lang: ru
@@ -111,6 +111,36 @@ rules:
     action: flag
     lang: en
     words: [safe deal, payment link, sms code, cvv code, card security code]
+  # --- предоплата в обход слова «предоплата»: половина вперёд, бронь, материалы, кошельки ---
+  # Главный страх клиентов (симуляция 2026-10-13); только flag — честные «бронь даты» тоже
+  # попадут модератору, без санкции. «Деньги на материалы» здесь нет: словарь не отличит
+  # «отдадите после покупки» — это умеет детектор platform/text.
+  - category: scam
+    action: flag
+    lang: ru
+    words: [половину до начала, половину вперёд, половина вперёд, половину сейчас,
+            предварительная оплата, частичная оплата, на материалы вперёд, за бронь,
+            бронь даты, бронирование даты, оплата брони, закрепить дату,
+            оплата за выезд вперёд, на револют, через wise, на wise, в крипте, номер счёта,
+            мой iban]
+  - category: scam
+    action: flag
+    lang: ru
+    regex: ['\b(?:polovin\w*|pola?)\s+(?:do\s+(?:nacala|pocetka)|pre\s+pocetka|vpered|unapred|zarane|srazu|sejcas|sada|odmah)\b',
+            '\b\d+\s+(?:procent\w*|posto)\s+(?:vpered|unapred|zarane|srazu|do\s+(?:nacala|pocetka))\b',
+            '\b(?:usdt|usdc)\b']
+  - category: scam
+    action: flag
+    lang: sr
+    words: [uplatite na račun, uplata na račun, prebacite na račun, pošaljite na račun,
+            na tekući račun, broj računa, pola unapred, polovinu unapred, pola sada, pola odmah,
+            pola pre početka, za materijal unapred, uplata za rezervaciju, preko revoluta,
+            na revolut, preko wise, kripto]
+  - category: scam
+    action: flag
+    lang: en
+    words: [half upfront, half now, booking fee, reservation fee, money for materials,
+            send to my revolut, via wise, paypal me]
   # --- спам и реклама ----------------------------------------------------------------------
   - category: spam
     action: flag

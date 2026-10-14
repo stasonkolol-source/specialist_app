@@ -118,6 +118,10 @@ class RiskSignals(Protocol):
         """Записать сигналы; с уже записанным `dedupe_key` — пропустить. Сколько новых."""
         ...
 
+    async def of_user(self, user_id: UserId, *, since: datetime) -> list[RiskSignal]:
+        """Сигналы пользователя с `since`, по порядку записи — для карточки кейса (2.5b)."""
+        ...
+
 
 class ReportRepository(Protocol):
     """Жалобы (4.7) — простая запись: правило «одна открытая жалоба человека на объект» держит
