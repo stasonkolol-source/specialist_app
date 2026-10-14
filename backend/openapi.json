@@ -7365,7 +7365,7 @@
           "views"
         ],
         "summary": "List Response Cards",
-        "description": "Отклики на свою заявку для S23: исполнитель с фото, районом и рейтингом, «Откликнулся\nпервым», новые для клиента. Ответ отмечает отклики просмотренными. Отклики тех, с кем у\nклиента блокировка (4.7), не показываются: имена и блокировки — одним чтением identity.",
+        "description": "Отклики на свою заявку для S23: исполнитель с фото, районом, рейтингом и фактами (стаж в\n«Соседях», сделки, работы, отзывы до платформы, время ответа, проверка модератором),\n«Откликнулся первым», новые для клиента. Ответ отмечает отклики просмотренными. Отклики тех,\nс кем у клиента блокировка (4.7), не показываются: имена и блокировки — одним чтением\nidentity.",
         "operationId": "views_list_response_cards",
         "security": [
           {
@@ -15447,6 +15447,69 @@
           "phone_verified": {
             "type": "boolean",
             "title": "Phone Verified"
+          },
+          "member_since": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Member Since",
+            "description": "Когда создан аккаунт: «В „Соседях“ 3 месяца»; аккаунт удалён — null"
+          },
+          "completed_deals": {
+            "type": "integer",
+            "title": "Completed Deals",
+            "description": "Сделок в «Соседях», которые исполнитель завершил"
+          },
+          "works_count": {
+            "type": "integer",
+            "title": "Works Count",
+            "description": "Опубликованных работ портфолио; без профиля — 0"
+          },
+          "pre_platform_count": {
+            "type": "integer",
+            "title": "Pre Platform Count",
+            "description": "Отзывов «до платформы» (по приглашениям, в рейтинг не входят); без профиля — 0"
+          },
+          "is_founding": {
+            "type": "boolean",
+            "title": "Is Founding",
+            "description": "«Приглашён командой»: founding-специалист"
+          },
+          "profile_checked_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Profile Checked At",
+            "description": "«Проверен модератором»: когда профиль опубликован после проверки; без профиля — null"
+          },
+          "response_time_minutes": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Response Time Minutes",
+            "description": "«Обычно отвечает за …», как на S08; меньше пяти диалогов с ответом — null"
+          },
+          "is_new_account": {
+            "type": "boolean",
+            "title": "Is New Account",
+            "description": "«Новый аккаунт»: уровень доверия 0"
           }
         },
         "type": "object",
@@ -15460,7 +15523,15 @@
           "rating",
           "rating_count",
           "is_new",
-          "phone_verified"
+          "phone_verified",
+          "member_since",
+          "completed_deals",
+          "works_count",
+          "pre_platform_count",
+          "is_founding",
+          "profile_checked_at",
+          "response_time_minutes",
+          "is_new_account"
         ],
         "title": "ResponsePerformerCardOut"
       },
@@ -16989,13 +17060,18 @@
             "type": "boolean",
             "title": "Is New"
           },
+          "pre_platform_count": {
+            "type": "integer",
+            "title": "Pre Platform Count",
+            "description": "«Отзывы до платформы · 3»: опубликованные отзывы по приглашениям (7.6а), в рейтинг не входят"
+          },
           "badges": {
             "items": {
               "type": "string"
             },
             "type": "array",
             "title": "Badges",
-            "description": "Факты-бейджи: `phone_verified` — телефон подтверждён"
+            "description": "Факты о профиле: phone_verified — телефон подтверждён (номер не отдаётся), moderated — проверен модератором до публикации (дата — published_at)"
           },
           "response_time_minutes": {
             "anyOf": [
@@ -17076,6 +17152,7 @@
           "rating",
           "rating_count",
           "is_new",
+          "pre_platform_count",
           "badges",
           "response_time_minutes",
           "services",

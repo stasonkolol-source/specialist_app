@@ -128,7 +128,16 @@ export const ViewsGetSpecialistResponse = zod.object({
     .describe('Когда отзывов достаточно (7.2); иначе is_new'),
   rating_count: zod.int(),
   is_new: zod.boolean(),
-  badges: zod.array(zod.string()).describe('Факты-бейджи: `phone_verified` — телефон подтверждён'),
+  pre_platform_count: zod
+    .int()
+    .describe(
+      '«Отзывы до платформы · 3»: опубликованные отзывы по приглашениям (7.6а), в рейтинг не входят',
+    ),
+  badges: zod
+    .array(zod.string())
+    .describe(
+      'Факты о профиле: phone_verified — телефон подтверждён (номер не отдаётся), moderated — проверен модератором до публикации (дата — published_at)',
+    ),
   response_time_minutes: zod
     .union([zod.int(), zod.null()])
     .describe(
@@ -396,9 +405,11 @@ export const ViewsListSpecialistReviewsResponse = zod.object({
 });
 
 /**
- * Отклики на свою заявку для S23: исполнитель с фото, районом и рейтингом, «Откликнулся
- * первым», новые для клиента. Ответ отмечает отклики просмотренными. Отклики тех, с кем у
- * клиента блокировка (4.7), не показываются: имена и блокировки — одним чтением identity.
+ * Отклики на свою заявку для S23: исполнитель с фото, районом, рейтингом и фактами (стаж в
+ * «Соседях», сделки, работы, отзывы до платформы, время ответа, проверка модератором),
+ * «Откликнулся первым», новые для клиента. Ответ отмечает отклики просмотренными. Отклики тех,
+ * с кем у клиента блокировка (4.7), не показываются: имена и блокировки — одним чтением
+ * identity.
  * @summary List Response Cards
  */
 export const ViewsListResponseCardsParams = zod.object({
@@ -481,6 +492,26 @@ export const ViewsListResponseCardsResponse = zod.object({
           rating_count: zod.int(),
           is_new: zod.boolean().describe('«Новый специалист»: меньше трёх отзывов по сделкам'),
           phone_verified: zod.boolean(),
+          member_since: zod
+            .union([zod.iso.datetime({ offset: true }), zod.null()])
+            .describe('Когда создан аккаунт: «В „Соседях“ 3 месяца»; аккаунт удалён — null'),
+          completed_deals: zod.int().describe('Сделок в «Соседях», которые исполнитель завершил'),
+          works_count: zod.int().describe('Опубликованных работ портфолио; без профиля — 0'),
+          pre_platform_count: zod
+            .int()
+            .describe(
+              'Отзывов «до платформы» (по приглашениям, в рейтинг не входят); без профиля — 0',
+            ),
+          is_founding: zod.boolean().describe('«Приглашён командой»: founding-специалист'),
+          profile_checked_at: zod
+            .union([zod.iso.datetime({ offset: true }), zod.null()])
+            .describe(
+              '«Проверен модератором»: когда профиль опубликован после проверки; без профиля — null',
+            ),
+          response_time_minutes: zod
+            .union([zod.int(), zod.null()])
+            .describe('«Обычно отвечает за …», как на S08; меньше пяти диалогов с ответом — null'),
+          is_new_account: zod.boolean().describe('«Новый аккаунт»: уровень доверия 0'),
         }),
       }),
     )

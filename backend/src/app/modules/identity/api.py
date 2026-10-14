@@ -181,6 +181,11 @@ class IdentityApi(Protocol):
         """Кого пользователь заблокировал (S44), недавние первыми."""
         ...
 
+    async def completed_deals(self, user_ids: Collection[UserId]) -> dict[UserId, int]:
+        """Сколько сделок в «Соседях» каждый завершил стороной (identity.completed_deals, 6.1a)
+        — «Сделок: 4» в карточках откликов S23 пачкой; у кого ни одной — нет в ответе."""
+        ...
+
 
 class DeletionHold(Protocol):
     """Legal hold удаления аккаунта (ARCHITECTURE §7.10): удаление ждёт решения открытых кейсов

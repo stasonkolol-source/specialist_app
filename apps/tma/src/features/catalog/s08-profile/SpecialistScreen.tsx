@@ -1,12 +1,16 @@
 // S08 Профиль специалиста (DEVELOPMENT_PLAN 4.5): экран, на котором клиент решает, писать ли.
 // Шапка — фото, имя, «коротко о себе», рейтинг или «Новый специалист», район и «Обычно отвечает
-// за …» (когда диалогов с ответом за 30 дней набралось пять); бейджи — не больше трёх:
-// «Подработка», «Телефон подтверждён», «Сегодня до …»; под ними ряд кнопок, как на артборде:
+// за …» (когда диалогов с ответом за 30 дней набралось пять); бейджи — не больше четырёх:
+// «Подработка», «Телефон подтверждён», «Проверен модератором» и «Приглашён командой» (по тапу —
+// шторка «Что проверено»: бейдж называет факт, расшифровка — в один тап, ZZP 35/2026 ст. 19–20),
+// «Сегодня до …»; под ними ряд кнопок, как на артборде:
 // «Заказать напрямую» (вторичная, под ней — «Заявку увидит только …»), сердечко «в избранное»
 // (4.6) и «Поделиться». Первые позиции прайса с единицей у суммы и ссылкой на S09, под ними —
 // памятка «не платите предоплату незнакомым» одной строкой, а не баннером (UX_GUIDANCE №8); превью
 // работ
-// со ссылкой на просмотрщик S10, последний отзыв со ссылкой на S11; «О себе» — текст, языки и
+// со ссылкой на просмотрщик S10, последний отзыв со ссылкой на S11 (раздел есть и у профиля с
+// одними отзывами «до платформы»: строка «Отзывы до платформы · 3» ведёт на их вкладку S11, в
+// рейтинг они не входят), строка «Как мы проверяем» — та же шторка; «О себе» — текст, языки и
 // районы выезда. Всё — одним запросом BFF. Профиль скрыт или его нет — «Профиль недоступен».
 // MainButton «Написать» (6.4) — одно главное действие: диалог S30 со специалистом (начатый — тот
 // же); «Заказать напрямую» — прямой запрос (5.6): мастер заявки S20a, заявку увидит только этот
@@ -29,9 +33,11 @@ import {
   cachedSpecialistCard,
   cardVariants,
   isUnavailable,
+  openChecked,
   openReport,
   searchCardOf,
   useBlocks,
+  useCheckedTarget,
   useMyProfile,
   useReportTarget,
   useSpecialistCard,
@@ -74,16 +80,26 @@ import { avatarSrc, knownLanguages, place, sentence } from '../shared/card.ts';
 import { useCardArea, useWholeCity } from '../shared/city.ts';
 import { useFavoriteToggle } from '../shared/favorite.ts';
 import { useProfileShare } from '../shared/share.tsx';
+import type { PortfolioSearch, ReviewsSearch } from '../shared/paths.ts';
 import { CARD_PATHS, CREATE_JOB_PATH, chatPath } from '../shared/paths.ts';
 import { writeInTelegramLink } from './telegram.ts';
 
 const PHONE_VERIFIED = 'phone_verified';
+const MODERATED = 'moderated';
 const CASUAL = 'casual';
 /** Аватар lg — 88 px. */
 const AVATAR_LG = 88;
 const MINUTES_IN_HOUR = 60;
-/** Бейджей в шапке — не больше трёх: дальше ряд переносится и спорит с кнопками. */
-const MAX_BADGES = 3;
+/** Бейджей в шапке — не больше четырёх: две строки, дальше ряд спорит с кнопками. */
+const MAX_BADGES = 4;
+const PRE_PLATFORM_TAB: ReviewsSearch = { kind: 'pre_platform' };
+
+interface HeaderBadge extends SpecialistBadge {
+  /** Бейдж с расшифровкой по тапу: «Проверен модератором», «Приглашён командой». */
+  onClick?: () => void;
+  /** Подпись кнопки-бейджа для скринридера: что откроется. */
+  hint?: string;
+}
 
 export function SpecialistScreen() {
   const { profileId } = useParams({ strict: false }) as { profileId: string };
@@ -229,21 +245,25 @@ function Profile({ card }: { card: SpecialistProfileOut }) {
   const sharing = useProfileShare(card.id);
   const blocks = useBlocks();
   const blocked = blockedIds(blocks.data).has(card.user_id);
+  // пока открыта шторка (жалоба или «Что проверено»), MainButton под затемнением прячется
   const reporting = useReportTarget() !== null;
+  const checking = useCheckedTarget() !== null;
+  const sheet = reporting || checking;
   // браузер (только гость): написать можно лишь в Telegram — кнопка сразу ведёт туда
   const browser = usePlatform().kind === 'browser';
   const telegram = browser ? writeInTelegramLink(card.id) : null;
-  const { own, writeError } = useWriteButton(card.id, blocked || reporting || telegram !== null);
+  const { own, writeError } = useWriteButton(card.id, blocked || sheet || telegram !== null);
   // себе и заблокированному — только «Поделиться»; в браузере заявку не предложить (мастера нет)
   const favorite = own || blocked ? undefined : control(searchCardOf(card), false);
   const propose = !own && !blocked && !browser;
   const params = { profileId: card.id };
-  const go = (to: string, search?: { work: string }) => (event: MouseEvent<HTMLElement>) => {
-    event.preventDefault();
-    void router.navigate({ to, params, search });
-  };
+  const go =
+    (to: string, search?: PortfolioSearch | ReviewsSearch) => (event: MouseEvent<HTMLElement>) => {
+      event.preventDefault();
+      void router.navigate({ to, params, search });
+    };
   // у hash history в Telegram ссылка — «#/specialists/…»: адрес маршрута → href ссылки
-  const href = (to: string, search?: { work: string }) =>
+  const href = (to: string, search?: PortfolioSearch | ReviewsSearch) =>
     router.history.createHref(router.buildLocation({ to, params, search }).href);
 
   const until = card.available_until ? new Date(card.available_until) : null;
@@ -301,11 +321,26 @@ function Profile({ card }: { card: SpecialistProfileOut }) {
         </div>
         {badges.length > 0 && (
           <div className="flex flex-wrap gap-1.5">
-            {badges.map((badge) => (
-              <Badge key={badge.label} tone={badge.tone} icon={badge.icon} dot={badge.dot}>
-                {badge.label}
-              </Badge>
-            ))}
+            {badges.map((badge) =>
+              badge.onClick ? (
+                // бейдж-факт с расшифровкой: кнопка с зоной нажатия 44 px (.hit) вокруг бейджа
+                <button
+                  key={badge.label}
+                  type="button"
+                  aria-label={badge.hint}
+                  onClick={badge.onClick}
+                  className="hit m-0 rounded-badge border-0 bg-transparent p-0 outline-none focus-visible:outline-2 focus-visible:outline-solid focus-visible:outline-offset-2 focus-visible:outline-accent"
+                >
+                  <Badge tone={badge.tone} icon={badge.icon} dot={badge.dot}>
+                    {badge.label}
+                  </Badge>
+                </button>
+              ) : (
+                <Badge key={badge.label} tone={badge.tone} icon={badge.icon} dot={badge.dot}>
+                  {badge.label}
+                </Badge>
+              ),
+            )}
           </div>
         )}
         {/* ряд как на артборде: кнопка тянется, иконки 44×44 справа; без кнопки иконки — там же */}
@@ -404,12 +439,12 @@ function Profile({ card }: { card: SpecialistProfileOut }) {
           </div>
         </section>
       )}
-      {card.rating_count > 0 && (
+      {(card.rating_count > 0 || card.pre_platform_count > 0) && (
         <section aria-labelledby={reviewsId} className="flex flex-col gap-2">
           <SectionHead
             id={reviewsId}
             title={t('reviews.title')}
-            link={t('reviews.all', { count: card.rating_count })}
+            link={t('reviews.all', { count: card.rating_count || card.pre_platform_count })}
             href={href(CARD_PATHS.reviews)}
             onClick={go(CARD_PATHS.reviews)}
           />
@@ -418,6 +453,27 @@ function Profile({ card }: { card: SpecialistProfileOut }) {
           ))}
         </section>
       )}
+      {/* факты о проверке — строками под отзывами: «до платформы» (не подтверждены сделкой, в
+          рейтинг не входят) ведут на свою вкладку S11, «Как мы проверяем» — шторка */}
+      <Group>
+        {card.pre_platform_count > 0 && (
+          <Row
+            icon="star-outline"
+            title={t('profile.prePlatformReviews')}
+            subtitle={t('profile.prePlatformNote')}
+            trailing={<span className="text-text2 tabular-nums">{card.pre_platform_count}</span>}
+            chevron
+            href={href(CARD_PATHS.reviews, PRE_PLATFORM_TAB)}
+            onClick={go(CARD_PATHS.reviews, PRE_PLATFORM_TAB)}
+          />
+        )}
+        <Row
+          icon="check"
+          title={t('profile.howChecked')}
+          chevron
+          onClick={() => openChecked({ kind: 'moderated', checkedAt: card.published_at })}
+        />
+      </Group>
       {(card.about || languages.length > 0 || travel) && (
         <section
           aria-labelledby={aboutId}
@@ -458,19 +514,39 @@ function WriteInTelegram({ href }: { href: string }) {
   );
 }
 
-/** Бейджи шапки — факты в порядке важности, не больше трёх: «Подработка» (S32a обещает
- *  специалисту пометку рядом с именем; SPEC §4 — `bdg mute`), «Телефон подтверждён», «Сегодня до
- *  …» (`until` — только пока ещё доступен). */
+/** Бейджи шапки — факты в порядке важности, не больше четырёх: «Подработка» (S32a обещает
+ *  специалисту пометку рядом с именем; SPEC §4 — `bdg mute`), «Телефон подтверждён», «Проверен
+ *  модератором» и «Приглашён командой» (по тапу — шторка «Что проверено»), «Сегодня до …»
+ *  (`until` — только пока ещё доступен). Слов «верифицирован», «надёжный» нет: бейдж называет
+ *  факт, не качество (ADR-0016). */
 function headerBadges(
-  card: Pick<SpecialistProfileOut, 'kind' | 'badges'>,
+  card: Pick<SpecialistProfileOut, 'kind' | 'badges' | 'is_founding' | 'published_at'>,
   until: Date | null,
   t: ReturnType<typeof useTranslation<'catalog'>>['t'],
   format: Format,
-): SpecialistBadge[] {
-  const badges: SpecialistBadge[] = [];
+): HeaderBadge[] {
+  const badges: HeaderBadge[] = [];
   if (card.kind === CASUAL) badges.push({ label: t('profile.casual'), tone: 'mute' });
   if (card.badges.includes(PHONE_VERIFIED)) {
     badges.push({ label: t('results.phoneVerified'), tone: 'info', icon: 'shield' });
+  }
+  if (card.badges.includes(MODERATED)) {
+    badges.push({
+      label: t('profile.moderated'),
+      tone: 'info',
+      icon: 'check',
+      hint: t('profile.moderatedHint'),
+      onClick: () => openChecked({ kind: 'moderated', checkedAt: card.published_at }),
+    });
+  }
+  if (card.is_founding) {
+    badges.push({
+      label: t('profile.founding'),
+      tone: 'info',
+      icon: 'users',
+      hint: t('profile.foundingHint'),
+      onClick: () => openChecked({ kind: 'founding', checkedAt: null }),
+    });
   }
   if (until) {
     badges.push({

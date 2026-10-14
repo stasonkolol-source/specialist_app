@@ -1,7 +1,9 @@
 """Своя заявка клиента (DEVELOPMENT_PLAN 5.6, S22 и S23): в «Моих заявках» — число новых откликов;
-отклики на S23 — карточками с исполнителем (профиль, «Новый специалист», подработка без профиля),
-«Откликнулся первым» и меткой новых. Ответ отмечает отклики просмотренными: второй раз они уже не
-новые, бейдж S22 гаснет, а версия заявки не меняется. Чужая заявка — 404. Данные коммитятся.
+отклики на S23 — карточками с исполнителем (профиль, «Новый специалист», подработка без профиля,
+факты доверия: с какого времени в «Соседях», сделки, работы, отзывы до платформы, founding,
+проверка модератором, «Новый аккаунт»), «Откликнулся первым» и меткой новых. Ответ отмечает
+отклики просмотренными: второй раз они уже не новые, бейдж S22 гаснет, а версия заявки не
+меняется. Чужая заявка — 404. Данные коммитятся.
 """
 
 from collections.abc import AsyncIterator
@@ -99,6 +101,21 @@ async def test_new_responses_become_seen_on_the_response_cards(world: Invites) -
         True,
         False,
     )
+    # факты у нового исполнителя: профиль проверен (опубликован), аккаунт новый, счётчики нули;
+    # у отклика без профиля — ни проверки, ни работ, ни founding
+    assert ana["performer"]["profile_checked_at"] is not None
+    assert ana["performer"]["member_since"] is not None
+    assert (ana["performer"]["is_new_account"], ana["performer"]["is_founding"]) == (True, False)
+    assert (
+        ana["performer"]["completed_deals"],
+        ana["performer"]["works_count"],
+        ana["performer"]["pre_platform_count"],
+        ana["performer"]["response_time_minutes"],
+    ) == (0, 0, 0, None)
+    assert (marko["performer"]["profile_checked_at"], marko["performer"]["works_count"]) == (
+        None,
+        0,
+    )
     assert marko["price"] == {"type": "fixed", "amount": {"amount": 350_000, "currency": "RSD"}}
     assert marko["availability_note"] == "Сегодня, 19:00"
     assert await world.scalar("SELECT version FROM jobs.jobs WHERE id = :id", id=job_id) == version
@@ -137,10 +154,67 @@ async def test_response_cards_are_read_in_batches(world: Invites) -> None:
     assert [card["is_new"] for card in first] == [True] * 5
     assert [card["is_new"] for card in again] == [False] * 5
     assert {card["performer"]["district"]["id"] for card in again} == {district}
-    # заявка, отклики, карточки профилей, санкции авторов, рейтинги, имена; районы — из
-    # снимка справочника; было 35 запросов и UPDATE на каждый опрос
-    assert trips.queries == 6, trips.statements
+    # заявка, отклики, карточки профилей (с числом работ), санкции авторов, рейтинги, отзывы до
+    # платформы, время ответа, сделки, имена; районы — из снимка справочника; было 35 запросов
+    # и UPDATE на каждый опрос
+    assert trips.queries == 9, trips.statements
     assert (trips.begins, trips.ends) == (0, 0)
+
+
+async def test_response_card_carries_the_trust_facts(world: Invites) -> None:
+    """Клиент выбирает по карточке отклика: founding, сделки в «Соседях», работы портфолио,
+    отзывы до платформы и время ответа — счётчики из своих модулей, пачкой на все отклики."""
+    client = await world.user()
+    job_id = await world.job(client)
+    performer, profile_id = await world.specialist("Ana")
+    await world.execute(
+        "UPDATE specialists.profiles SET is_founding = true WHERE id = :id", id=profile_id
+    )
+    for _ in range(2):
+        await world.execute(
+            "INSERT INTO identity.completed_deals (user_id, deal_id, completed_at)"
+            " VALUES (:user, :deal, now())",
+            user=performer,
+            deal=new_id(),
+        )
+    # опубликованная работа считается, ждущая проверки и скрытая — нет
+    for status in ("published", "pending", "rejected"):
+        await world.execute(
+            "INSERT INTO specialists.portfolio_items (id, profile_id, status)"
+            " VALUES (:id, :profile, :status)",
+            id=new_id(),
+            profile=profile_id,
+            status=status,
+        )
+    # отзыв до платформы — опубликованный; снятый не считается (один отзыв на автора)
+    for author, status in ((client, "published"), (await world.user(), "removed")):
+        await world.execute(
+            "INSERT INTO reviews.reviews (id, kind, deal_id, author_id, subject_user_id,"
+            " subject_profile_id, direction, rating, status, published_at, work_title, version)"
+            " VALUES (:id, 'pre_platform', NULL, :author, :subject, :profile,"
+            " 'client_to_performer', 5, :status, now(), 'Люстра', 1)",
+            id=new_id(),
+            author=author,
+            subject=performer,
+            profile=profile_id,
+            status=status,
+        )
+    await world.execute(
+        "UPDATE search.specialist_index SET response_time_minutes = 15 WHERE profile_id = :id",
+        id=profile_id,
+    )
+    assert (await world.respond(performer, job_id)).status_code == 201
+    await world.execute(
+        "UPDATE jobs.responses SET review = 'clear', updated_at = now() WHERE job_id = :job",
+        job=job_id,
+    )
+
+    [card] = await cards(world, client, job_id)
+
+    facts = card["performer"]
+    assert (facts["is_founding"], facts["completed_deals"], facts["works_count"]) == (True, 2, 1)
+    assert facts["pre_platform_count"] == 1
+    assert facts["profile_checked_at"] is not None
 
 
 async def test_whole_city_performer_is_not_put_in_a_district(world: Invites) -> None:

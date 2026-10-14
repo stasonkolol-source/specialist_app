@@ -134,6 +134,7 @@ export const getViewsGetSpecialistResponseMock = (
   rating: faker.helpers.arrayElement([faker.number.float({ fractionDigits: 2 }), null]),
   rating_count: faker.number.int(),
   is_new: faker.datatype.boolean(),
+  pre_platform_count: faker.number.int(),
   badges: Array.from({ length: faker.number.int({ min: 1, max: 10 }) }, (_, i) => i + 1).map(() =>
     faker.string.alpha({ length: { min: 10, max: 20 } }),
   ),
@@ -419,6 +420,20 @@ export const getViewsListResponseCardsResponseMock = (
       rating_count: faker.number.int(),
       is_new: faker.datatype.boolean(),
       phone_verified: faker.datatype.boolean(),
+      member_since: faker.helpers.arrayElement([
+        faker.date.past().toISOString().slice(0, 19) + 'Z',
+        null,
+      ]),
+      completed_deals: faker.number.int(),
+      works_count: faker.number.int(),
+      pre_platform_count: faker.number.int(),
+      is_founding: faker.datatype.boolean(),
+      profile_checked_at: faker.helpers.arrayElement([
+        faker.date.past().toISOString().slice(0, 19) + 'Z',
+        null,
+      ]),
+      response_time_minutes: faker.helpers.arrayElement([faker.number.int(), null]),
+      is_new_account: faker.datatype.boolean(),
     },
   })),
   ...overrideResponse,

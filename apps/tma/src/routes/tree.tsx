@@ -17,6 +17,7 @@ import {
   FAVORITES_PATH,
   portfolioSearch,
   resultsSearch,
+  reviewsSearch,
 } from '../features/catalog/index.ts';
 import {
   CREATE_PATHS,
@@ -497,6 +498,7 @@ const specialistWorks = createRoute({
 const specialistReviews = createRoute({
   getParentRoute: () => rootRoute,
   path: CARD_PATHS.reviews,
+  validateSearch: reviewsSearch,
   component: screen(() => import('../features/catalog/s11-reviews/index.ts'), 'ReviewsScreen'),
 });
 

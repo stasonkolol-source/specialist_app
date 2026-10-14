@@ -154,6 +154,18 @@ class SqlSpecialistIndex(SqlQuery):
         )
         return row["minutes"] if row is not None else None
 
+    async def response_times(self, profile_ids: Collection[UUID]) -> dict[UUID, int]:
+        rows = await self._fetch(
+            select(
+                SpecialistIndexRow.profile_id.label("profile_id"),
+                SpecialistIndexRow.response_time_minutes.label("minutes"),
+            ).where(
+                SpecialistIndexRow.profile_id.in_(list(profile_ids)),
+                SpecialistIndexRow.response_time_minutes.is_not(None),
+            )
+        )
+        return {row["profile_id"]: int(row["minutes"]) for row in rows}
+
     async def ids_of_users(self, user_ids: Collection[UserId]) -> list[UUID]:
         column = SpecialistIndexRow.profile_id
         stmt = select(column).where(SpecialistIndexRow.user_id.in_(list(user_ids)))

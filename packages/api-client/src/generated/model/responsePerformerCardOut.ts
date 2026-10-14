@@ -25,4 +25,20 @@ export interface ResponsePerformerCardOut {
   /** «Новый специалист»: меньше трёх отзывов по сделкам */
   is_new: boolean;
   phone_verified: boolean;
+  /** Когда создан аккаунт: «В „Соседях“ 3 месяца»; аккаунт удалён — null */
+  member_since: string | null;
+  /** Сделок в «Соседях», которые исполнитель завершил */
+  completed_deals: number;
+  /** Опубликованных работ портфолио; без профиля — 0 */
+  works_count: number;
+  /** Отзывов «до платформы» (по приглашениям, в рейтинг не входят); без профиля — 0 */
+  pre_platform_count: number;
+  /** «Приглашён командой»: founding-специалист */
+  is_founding: boolean;
+  /** «Проверен модератором»: когда профиль опубликован после проверки; без профиля — null */
+  profile_checked_at: string | null;
+  /** «Обычно отвечает за …», как на S08; меньше пяти диалогов с ответом — null */
+  response_time_minutes: number | null;
+  /** «Новый аккаунт»: уровень доверия 0 */
+  is_new_account: boolean;
 }
