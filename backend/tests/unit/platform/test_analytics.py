@@ -167,7 +167,18 @@ def test_wired_events_are_those_of_the_finished_steps() -> None:
         EventName.JOB_MATCHED_NOTIFIED: "5.7",
         EventName.GOODS_WAITLIST_JOINED: "7.5",
         EventName.CITY_WAITLIST_JOINED: "7.1",
+        EventName.PRO_WAITLIST_JOINED: "2.7b",
     }
+
+
+def test_every_event_captured_by_a_task_is_wired() -> None:
+    """Событие, которое пишет подписчик аналитики, должно быть подключено (properties не None):
+    иначе capture падает «declared but not wired yet» на каждом событии — так `pro_waitlist_joined`
+    не доходил до аналитики ни разу."""
+    tasks = (Path(__file__).parents[3] / "src/app/platform/analytics/tasks.py").read_text("utf-8")
+    captured = {EventName[name] for name in re.findall(r"EventName\.([A-Z_]+)", tasks)}
+    assert captured
+    assert {name for name in captured if EVENTS[name].properties is None} == set()
 
 
 def test_closed_lists_match_the_domain() -> None:
