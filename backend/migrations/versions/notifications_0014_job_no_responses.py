@@ -9,7 +9,7 @@ notifications_0010 и 0011: к нему добавляется `job.no_responses
 удаляет строки нового типа.
 
 Ревизия: notifications_0014 (2026-10-14 12:00:00.000000+00:00)
-Предыдущая: notifications_0012
+Предыдущая: platform_0008
 
 Правила (DEVELOPMENT_PLAN 0.9, ADR-0005):
 - имя ревизии — <модуль>_NNNN, файл — <модуль>_NNNN_<slug>.py;
@@ -26,7 +26,7 @@ from alembic import op
 from sqlalchemy import text
 
 revision: str = "notifications_0014"
-down_revision: str | Sequence[str] | None = "notifications_0012"
+down_revision: str | Sequence[str] | None = "platform_0008"
 branch_labels: str | Sequence[str] | None = None
 depends_on: str | Sequence[str] | None = None
 
