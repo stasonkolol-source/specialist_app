@@ -151,6 +151,9 @@ class IdentityFacade(IdentityApi):
     async def blocked_users(self, user_id: UserId) -> list[BlockedUser]:
         return await self._blocks.blocked_users(user_id)
 
+    async def completed_deals(self, user_ids: Collection[UserId]) -> dict[UserId, int]:
+        return await self._query.completed_deals_of(user_ids)
+
     async def record_violation(self, user_id: UserId) -> None:
         self._uow.require_active()
         await self._penalize(await self._users.get_for_update(user_id), now=self._clock.now())

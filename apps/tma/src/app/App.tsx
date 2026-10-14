@@ -11,6 +11,7 @@ import { RouterProvider } from '@tanstack/react-router';
 import type { ReactNode } from 'react';
 import { useLayoutEffect } from 'react';
 
+import { CheckedHost } from '../features/catalog/index.ts';
 import { ReportHost } from '../features/safety/index.ts';
 import { CHROME } from './chrome.ts';
 import { ErrorBoundary } from './ErrorBoundary.tsx';
@@ -46,6 +47,8 @@ export function App({ platform, i18n, queryClient, router, version, launch, deep
                   <RouterProvider router={router} />
                   {/* шторка жалобы S46 — над любым экраном, своим чанком (4.7) */}
                   <ReportHost />
+                  {/* шторка «Что проверено» — бейджи доверия S08, S11, S24, своим чанком */}
+                  <CheckedHost />
                 </LaunchGate>
               </StartupGate>
             </ErrorBoundary>

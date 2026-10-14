@@ -163,8 +163,17 @@ class SqlProfileQuery(SqlQuery):
 
     async def public_cards(self, profile_ids: Collection[UUID]) -> dict[UUID, PublicCard]:
         """Опубликованные профили карточками: районы — массивом-подзапросом (по ним видно и
-        «весь город»), одним запросом."""
-        p = ProfileRow.__table__.c
+        «весь город»), число опубликованных работ — подзапросом; одним запросом."""
+        p, w = ProfileRow.__table__.c, PortfolioItemRow.__table__.c
+        works = (
+            select(func.count())
+            .where(
+                w.profile_id == ProfileRow.id,
+                w.deleted_at.is_(None),
+                w.status == WorkStatus.PUBLISHED,
+            )
+            .scalar_subquery()
+        )
         rows = await self._fetch(
             select(
                 p.id,
@@ -173,6 +182,9 @@ class SqlProfileQuery(SqlQuery):
                 p.display_name,
                 p.avatar_media_id,
                 p.city_id,
+                p.is_founding,
+                p.published_at,
+                works.label("works_count"),
                 _ordered_ids(ServiceAreaRow, "district_id").label("area_ids"),
             ).where(
                 p.id.in_(list(profile_ids)),
@@ -189,6 +201,9 @@ class SqlProfileQuery(SqlQuery):
                 avatar_media_id=MediaId(row["avatar_media_id"]) if row["avatar_media_id"] else None,
                 city_id=CityId(row["city_id"]),
                 area_ids=tuple(DistrictId(item) for item in row["area_ids"]),
+                is_founding=row["is_founding"],
+                published_at=row["published_at"],
+                works_count=int(row["works_count"] or 0),
             )
             for row in rows
         }

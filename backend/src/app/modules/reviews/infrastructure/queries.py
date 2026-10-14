@@ -53,6 +53,21 @@ class SqlReviewQueries(SqlQuery):
         )
         return int(row["count"]) if row is not None else 0
 
+    async def counts_of(self, profile_ids: Collection[UUID], kind: ReviewKind) -> dict[UUID, int]:
+        if not profile_ids:
+            return {}
+        rows = await self._fetch(
+            select(_R.subject_profile_id, func.count().label("count"))
+            .where(
+                _R.subject_profile_id.in_(list(profile_ids)),
+                _R.kind == kind.value,
+                _R.status == ReviewStatus.PUBLISHED.value,
+                _R.deleted_at.is_(None),
+            )
+            .group_by(_R.subject_profile_id)
+        )
+        return {row["subject_profile_id"]: int(row["count"]) for row in rows}
+
     async def public(self, review_id: UUID) -> PublicReview | None:
         row = await self._fetch_one(
             select(_T).where(

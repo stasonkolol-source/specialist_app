@@ -10,6 +10,8 @@ export {
   useCategories,
   useDistricts,
 } from './catalog/categories.ts';
+export type { CheckedTarget } from './catalog/checkedRequest.ts';
+export { closeChecked, openChecked, useCheckedTarget } from './catalog/checkedRequest.ts';
 export type { ClientVersions, FlagKey, UpdateNeeded } from './config/clientConfig.ts';
 export {
   CLIENT_CONFIG_STALE_MS,

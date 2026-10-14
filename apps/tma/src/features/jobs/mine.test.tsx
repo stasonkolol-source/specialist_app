@@ -241,16 +241,31 @@ describe('S23 manage job', () => {
     expect(within(first).getByText('4,9')).toBeTruthy();
     expect(within(first).getByText('37 отзывов')).toBeTruthy();
     expect(within(first).getByText('Лиман')).toBeTruthy();
-    expect(within(first).getByText('Откликнулся первым')).toBeTruthy();
+    // факты под рейтингом — счётчики и даты, не оценки: стаж, сделки, работы, отзывы до
+    // платформы, время ответа
+    expect(
+      within(first).getByText(
+        'В «Соседях» 1 год · Сделок: 4 · Работ в портфолио: 18 · Отзывов до платформы: 2 · Обычно отвечает за 15 мин',
+      ),
+    ).toBeTruthy();
+    // бейджей не больше двух, по важности: телефон, проверен модератором, потом «первым»
     expect(within(first).getByText('Телефон подтверждён')).toBeTruthy();
+    expect(within(first).getByText('Проверен модератором')).toBeTruthy();
+    expect(within(first).queryByText('Откликнулся первым')).toBeNull();
     // непросмотренный отклик — точкой у имени, не бейджем «Новый» рядом с 37 отзывами; точка
     // держится за последнее слово имени, перенос её не отрывает
     const dot = within(first).getByRole('img', { name: 'Новый отклик' });
     expect(dot.parentElement?.textContent).toBe('Морозов ');
     expect(within(first).queryByText('Новый')).toBeNull();
+    // без профиля — «Без профиля» в строке рейтинга (не «Подработка»), «Новый аккаунт» тихим
+    // бейджем, стаж — строкой фактов
     const casual = screen.getByRole('link', { name: /^Иван Гаврилов/ });
     expect(within(casual).getByText('Новый специалист')).toBeTruthy();
-    expect(within(casual).getByText('Подработка')).toBeTruthy();
+    expect(within(casual).getByText('Без профиля')).toBeTruthy();
+    expect(within(casual).queryByText('Подработка')).toBeNull();
+    expect(within(casual).getByText('Новый аккаунт')).toBeTruthy();
+    expect(within(casual).getByText('В «Соседях» меньше месяца')).toBeTruthy();
+    expect(within(casual).queryByText('Проверен модератором')).toBeNull();
     const seen = screen.getByRole('link', { name: /^Никола Петрович/ });
     expect(within(seen).queryByRole('img', { name: 'Новый отклик' })).toBeNull();
     // «выберите исполнителя» уже в строке статуса, про адрес — у района: баннер их не повторяет
@@ -263,16 +278,35 @@ describe('S23 manage job', () => {
     const backend = withMine();
     const [, ivan] = responseCardsFixture();
     if (!ivan || !CHANDELIER) throw new Error('fixtures');
-    // подработка, откликнулся первым и с телефоном — «Откликнулся первым» уступает фактам
+    // без профиля, откликнулся первым, с телефоном и новым аккаунтом — «Новый аккаунт» уступает
     backend.responseCards.set(CHANDELIER.id, [
       { ...ivan, is_first: true, performer: { ...ivan.performer, phone_verified: true } },
     ]);
     startApp(MANAGE);
 
     const card = await screen.findByRole('link', { name: /^Иван Гаврилов/ });
-    expect(within(card).getByText('Подработка')).toBeTruthy();
+    expect(within(card).getByText('Без профиля')).toBeTruthy();
     expect(within(card).getByText('Телефон подтверждён')).toBeTruthy();
-    expect(within(card).queryByText('Откликнулся первым')).toBeNull();
+    expect(within(card).getByText('Откликнулся первым')).toBeTruthy();
+    expect(within(card).queryByText('Новый аккаунт')).toBeNull();
+  });
+
+  it('shows a casual profile with its kind in the rating line and «Приглашён командой»', async () => {
+    const backend = withMine();
+    const [, , nikola] = responseCardsFixture();
+    if (!nikola || !CHANDELIER) throw new Error('fixtures');
+    backend.responseCards.set(CHANDELIER.id, [
+      { ...nikola, performer: { ...nikola.performer, kind: 'casual', is_founding: true } },
+    ]);
+    startApp(MANAGE);
+
+    const card = await screen.findByRole('link', { name: /^Никола Петрович/ });
+    expect(within(card).getByText('Подработка')).toBeTruthy();
+    expect(within(card).getByText('Проверен модератором')).toBeTruthy();
+    expect(within(card).getByText('Приглашён командой')).toBeTruthy();
+    expect(
+      within(card).getByText('В «Соседях» 6 месяцев · Сделок: 1 · Работ в портфолио: 3'),
+    ).toBeTruthy();
   });
 
   it('names a whole-city performer «Весь Нови-Сад», not the first district (QA SMOKE-6)', async () => {

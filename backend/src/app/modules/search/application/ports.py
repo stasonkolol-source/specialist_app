@@ -62,6 +62,10 @@ class SpecialistIndex(Protocol):
         """Медиана первого ответа специалиста в минутах; нет строки или мало диалогов — None."""
         ...
 
+    async def response_times(self, profile_ids: Collection[UUID]) -> dict[UUID, int]:
+        """То же пачкой; профиля без времени ответа нет в ответе."""
+        ...
+
     async def ids_of_users(self, user_ids: Collection[UserId]) -> list[UUID]:
         """Строки пользователей (профиль удалён — строка ещё может быть)."""
         ...

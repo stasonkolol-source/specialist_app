@@ -94,6 +94,27 @@ const doubleTap = (telegram: MockTelegram) =>
   });
 
 describe('S24 response and S25 choice', () => {
+  it('opens «Что проверено» from the response and hides the buttons meanwhile', async () => {
+    withMine();
+    const { telegram } = startApp(CHOICE);
+
+    expect(await screen.findByRole('heading', { name: 'Алексей Морозов', level: 1 })).toBeTruthy();
+    await waitFor(() => expect(mainButton(telegram)?.text).toBe('Выбрать исполнителем'));
+    await click(screen.getByRole('button', { name: 'Как мы проверяем' }));
+
+    const sheet = await screen.findByRole('dialog', { name: 'Что проверено' });
+    expect(
+      within(sheet).getByText(/посмотрел фото профиля и портфолио 20 сентября 2026/),
+    ).toBeTruthy();
+    expect(mainButton(telegram)?.is_visible).toBe(false);
+    expect(secondaryButton(telegram)?.is_visible).toBe(false);
+    await click(within(sheet).getByRole('button', { name: 'Закрыть' }));
+
+    await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull());
+    await waitFor(() => expect(mainButton(telegram)?.is_visible).toBe(true));
+    expect(secondaryButton(telegram)?.is_visible).toBe(true);
+  });
+
   it('leads from a response card to the offer and chooses the performer', async () => {
     const backend = withMine();
     const { app, telegram } = startApp(MANAGE);
@@ -103,6 +124,14 @@ describe('S24 response and S25 choice', () => {
     expect(await screen.findByRole('heading', { name: 'Алексей Морозов', level: 1 })).toBeTruthy();
     expect(screen.getByText('4,9')).toBeTruthy();
     expect(screen.getByText('37 отзывов')).toBeTruthy();
+    // факты и бейджи — как в карточке S23; под карточкой — когда проверен и «Как мы проверяем»
+    expect(
+      screen.getByText(
+        'В «Соседях» 1 год · Сделок: 4 · Работ в портфолио: 18 · Отзывов до платформы: 2 · Обычно отвечает за 15 мин',
+      ),
+    ).toBeTruthy();
+    expect(screen.getByText('Проверен модератором')).toBeTruthy();
+    expect(screen.getByText('Профиль проверен модератором 20 сентября')).toBeTruthy();
     const offer = screen.getByRole('region', { name: 'Предложение' });
     expect(within(offer).getByText('Цена за работу')).toBeTruthy();
     expect(within(offer).getByText('сегодня в 19:00')).toBeTruthy();

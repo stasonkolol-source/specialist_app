@@ -95,6 +95,12 @@ class PublicCard:
     area_ids: tuple[DistrictId, ...]
     """Районы выезда по порядку: первый — основной; все кварталы города — «Весь Нови-Сад»
     (GeoApi.covers_city)."""
+    is_founding: bool = False
+    """Founding (§15.2): «Приглашён командой» в карточке отклика."""
+    published_at: datetime | None = None
+    """Когда опубликован — она же дата проверки модератором («Проверен модератором»)."""
+    works_count: int = 0
+    """Опубликованных работ портфолио: «Работ в портфолио: 12» в карточке отклика."""
 
 
 @dataclass(frozen=True, slots=True, kw_only=True)
