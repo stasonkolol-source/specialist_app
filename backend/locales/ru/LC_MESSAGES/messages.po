@@ -152,6 +152,9 @@ msgstr "Предложение отклонено."
 msgid "bot.deals.proposal_closed"
 msgstr "Предложение уже неактуально: его подтвердили, отклонили или срок истёк."
 
+msgid "bot.deals.reported"
+msgstr "Жалоба отправлена — модератор проверит аккаунт. Не переводите деньги вперёд: на «Соседях» платят после работы."
+
 msgid "bot.help.text"
 msgstr "<b>Как это работает</b>\n• Опишите задачу — мастера рядом откликнутся с ценой. Или выберите специалиста по отзывам.\n• Договаривайтесь в чате «Соседей»: контакты — после договорённости.\n• Оплата — после работы, лично. «Соседи» денег не принимают — платить вперёд некому.\n\n<b>Безопасность</b>\n• Предоплату не просят и не вносят. Материалы — по чеку при встрече. Коды из СМС никому не сообщайте.\n• Просят предоплату или профиль подозрительный — пожалуйтесь прямо в приложении.\n\n/terms — правила площадки\n/privacy — политика конфиденциальности\n/language — язык"
 
@@ -942,6 +945,24 @@ msgstr "Выбрали другого исполнителя"
 msgid "notifications.response_not_selected.body"
 msgstr "Заявка «{title}». Спасибо за отклик — в ленте есть другие заявки рядом."
 
+msgid "notifications.response_chosen.title"
+msgstr "Вы выбрали: {name}"
+
+msgid "notifications.response_chosen.title_no_name"
+msgstr "Вы выбрали исполнителя"
+
+msgid "notifications.response_chosen.body"
+msgstr "Заявка «{title}». Контакты — в сделке. Оплата — после работы, лично; если просят предоплату — нажмите «Пожаловаться» под сообщением."
+
+msgid "notifications.response_chosen.report"
+msgstr "Пожаловаться"
+
+msgid "notifications.response_reopened.title"
+msgstr "Заявка снова открыта"
+
+msgid "notifications.response_reopened.body"
+msgstr "Клиент снова выбирает исполнителя по заявке «{title}» — ваш отклик в силе."
+
 msgid "notifications.response_job_closed.title"
 msgstr "Заявка закрыта без выбора"
 
@@ -1055,6 +1076,9 @@ msgstr "Открыть чат"
 
 msgid "notifications.deal_cancelled.reopened"
 msgstr "Заявка снова открыта, прежние отклики вернулись."
+
+msgid "notifications.deal_cancelled.responses"
+msgstr "Выбрать из откликов"
 
 msgid "notifications.deal_completed.title"
 msgstr "Сделка выполнена"

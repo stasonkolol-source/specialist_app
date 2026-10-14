@@ -2,14 +2,21 @@
 «Работа выполнена?» вызывает тот же CompleteDeal, что S26: отметка стороны, вторая отметка
 завершает сделку; по сделке под спором (6.1c) — «решение примет поддержка», без отметки.
 «Подтвердить» и «Отклонить» под «Договорились?» — те же ConfirmDeal и DeclineDeal, что S53.
-Повтор нажатия ничего не меняет, чужая сделка — «не найдена»."""
+«Пожаловаться» — жалоба `fraud` на вторую сторону в один тап. Повтор нажатия ничего не меняет,
+чужая сделка — «не найдена»."""
 
 from collections.abc import AsyncIterator
 from typing import Any
 from uuid import UUID
 
 import pytest
-from aiogram.methods import AnswerCallbackQuery, EditMessageText, TelegramMethod
+from aiogram.methods import (
+    AnswerCallbackQuery,
+    EditMessageReplyMarkup,
+    EditMessageText,
+    TelegramMethod,
+)
+from aiogram.types import InlineKeyboardButton, InlineKeyboardMarkup
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncEngine
 
@@ -160,3 +167,39 @@ async def test_confirm_and_decline_answer_the_proposal(harness: BotHarness) -> N
         for i in (confirmed_id, declined_id)
     ]
     assert [tuple(row) for row in statuses] == [("agreed", None), ("cancelled", "no_agreement")]
+
+
+async def test_report_files_a_fraud_report_on_the_other_party_in_one_tap(
+    harness: BotHarness,
+) -> None:
+    client, performer, stranger = telegram_user(), telegram_user(), telegram_user()
+    for telegram_id in (client, performer, stranger):
+        await harness.send(telegram_id, "/start")
+    deal_id = await agreed_deal(harness, client, performer)
+    report = encode_callback(CallbackData(CallbackAction.DEAL_REPORT, deal_id))
+    markup = InlineKeyboardMarkup(
+        inline_keyboard=[
+            [InlineKeyboardButton(text="Открыть сделку", url="https://example.test/")],
+            [InlineKeyboardButton(text="Пожаловаться", callback_data=report)],
+        ]
+    )
+
+    pressed = await harness.press(client, report, markup=markup)
+    foreign = await harness.press(stranger, report)
+
+    assert alerts(pressed) == [
+        "Жалоба отправлена — модератор проверит аккаунт. Не переводите деньги вперёд: на «Соседях»"
+        " платят после работы."
+    ]
+    [edit] = [call for call in pressed if isinstance(call, EditMessageReplyMarkup)]
+    assert edit.reply_markup is not None
+    assert [b.text for row in edit.reply_markup.inline_keyboard for b in row] == ["Открыть сделку"]
+    assert alerts(foreign) == ["Сделка не найдена."]
+    row = await sql(
+        harness,
+        "SELECT r.target_type, r.reason FROM moderation.reports r"
+        " JOIN identity.auth_identities a ON a.user_id = r.target_id"
+        " WHERE a.provider = 'telegram' AND a.subject = :performer",
+        performer=str(performer),
+    )
+    assert tuple(row) == ("user", "fraud")

@@ -23,7 +23,7 @@ from app.modules.jobs.errors import (
     ResponseNotFoundError,
 )
 from app.modules.jobs.tests.builders import CLIENT, NOW, published
-from app.platform.contracts.events.jobs import JobPublished, ResponseDeclined
+from app.platform.contracts.events.jobs import JobPublished, JobReopened, ResponseDeclined
 from app.platform.kernel.ids import UserId, new_id
 
 pytestmark = pytest.mark.unit
@@ -144,9 +144,15 @@ def test_cancelled_deal_reopens_the_job(by_performer: bool, status: ResponseStat
     assert (chosen.status, other.status, other.decided_at) == (status, ResponseStatus.VIEWED, None)
     assert job.expires_at is not None
     assert job.expires_at > LATER  # новый срок
-    [event] = job.pull_events()
-    assert isinstance(event, JobPublished)
-    assert event.republished
+    published_event, reopened_event = job.pull_events()
+    assert isinstance(published_event, JobPublished)
+    assert published_event.republished
+    # прежним кандидатам — «Заявка снова открыта, ваш отклик в силе»
+    assert isinstance(reopened_event, JobReopened)
+    assert (reopened_event.response_id, reopened_event.performer_ids) == (
+        chosen.id,
+        (other.performer_id,),
+    )
     assert not job.reopen_after_deal(chosen.id, by_performer=by_performer, now=LATER)
 
 
