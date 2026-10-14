@@ -1,10 +1,12 @@
 // Кабинет специалиста S33, доступность S38 и правка профиля S34 (DEVELOPMENT_PLAN 2.10): из
 // карточки на S31, скриншоты × тема × язык, axe-core. Время в браузере — 15:00 по Белграду:
 // варианты «до 18/20/22» и подписи зависят от часа. Имена скриншотов начинаются с кода артборда:
-// make design-compare кладёт их рядом с эталоном.
+// make design-compare кладёт их рядом с эталоном. Флаг «Подтвердить телефон» здесь включён — снимок
+// S33 показывает блок «Доверие»; в остальных снимках (S32c, S43) флаг выключен, как в проде до
+// редакции 2 политики.
 import { expect, test } from '@playwright/test';
 
-import { FIRST_SERVICE, ME, PROFILE_FILLED } from '../src/testing/fixtures.ts';
+import { CLIENT_CONFIG, FIRST_SERVICE, ME, PROFILE_FILLED } from '../src/testing/fixtures.ts';
 import { ProfileBackend } from '../src/testing/profileBackend.ts';
 import {
   THEMES,
@@ -27,6 +29,7 @@ const LOCALES = [
     title: 'Кабинет специалиста',
     published: 'Профиль опубликован и виден в поиске',
     steps: 'Первые шаги',
+    trust: 'Доверие',
     row: 'Профиль',
     edit: 'Редактирование профиля',
     areas: /^Лиман,\sГрбавица,\sЦентр\sи\sещё\s1$/,
@@ -43,6 +46,7 @@ const LOCALES = [
     title: 'Kabinet stručnjaka',
     published: 'Profil je objavljen i vidljiv u pretrazi',
     steps: 'Prvi koraci',
+    trust: 'Poverenje',
     row: 'Profil',
     edit: 'Izmena profila',
     areas: /^Liman,\sGrbavica,\sCentar\si\sjoš\s1$/,
@@ -64,6 +68,10 @@ for (const theme of THEMES) {
         signedIn: true,
         me: { ...ME, ui_locale: l.locale },
         profile,
+        config: {
+          ...CLIENT_CONFIG,
+          flags: { ...CLIENT_CONFIG.flags, 'identity.phone_verification': true },
+        },
       });
       /** Снимок экрана: до него — ни ошибок, ни неописанных запросов, после — axe-core. */
       const snap = async (name: string) => {
@@ -82,6 +90,7 @@ for (const theme of THEMES) {
       await expect(page.getByText(l.published)).toBeVisible();
       // подписок и шаблонов ещё нет — «Первые шаги» (UX №9)
       await expect(page.getByRole('region', { name: l.steps })).toBeVisible();
+      await expect(page.getByRole('region', { name: l.trust })).toBeVisible();
       await snap(`S33-cabinet-${theme}-${l.locale}.png`);
 
       // S38 как на артборде: «Доступен сегодня» включён, выбрано «до 20:00»

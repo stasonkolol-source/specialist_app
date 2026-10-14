@@ -124,7 +124,9 @@ def signals(
         (signals(age=400, penalized=14), TrustLevel.BASIC),  # 14 дней после нарушения
         (signals(age=400, sanctions=1), TrustLevel.NEW),  # пока действует санкция
         (signals(age=400, penalized=100, sanctions=1), TrustLevel.NEW),
-        (signals(age=5, phone=True), TrustLevel.NEW),  # телефон повысит в v1
+        (signals(age=5, phone=True), TrustLevel.BASIC),  # подтверждённый телефон (ADR-0016 §2)
+        (signals(age=5, phone=True, penalized=3), TrustLevel.NEW),  # нарушение сильнее
+        (signals(age=5, phone=True, sanctions=1), TrustLevel.NEW),
         # 6.1a: три завершённые сделки — проверенный, жалобы и санкции держат потолки
         (signals(age=5, deals=2), TrustLevel.NEW),
         (signals(age=30, deals=2), TrustLevel.BASIC),

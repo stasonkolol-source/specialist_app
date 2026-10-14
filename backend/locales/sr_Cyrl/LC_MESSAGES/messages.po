@@ -737,6 +737,15 @@ msgstr "Контакт можете поделити након договора
 msgid "errors.invalid_contact"
 msgstr "Дељење контакта није успело. Поново отворите апликацију и покушајте опет."
 
+msgid "errors.phone_taken"
+msgstr "Овај број је већ потврђен на другом налогу у „Соседима“: један број — један налог."
+
+msgid "errors.invalid_phone_contact"
+msgstr "Потврда телефона није успела. Поново отворите апликацију и покушајте опет."
+
+msgid "errors.phone_verification_unavailable"
+msgstr "Потврда телефона још није доступна."
+
 msgid "errors.review_not_found"
 msgstr "Утисак није пронађен."
 
@@ -1419,6 +1428,12 @@ msgstr "{count} д."
 
 msgid "bot.moderation.card.trust"
 msgstr "поверење {level}"
+
+msgid "bot.moderation.card.phone_yes"
+msgstr "телефон: да"
+
+msgid "bot.moderation.card.phone_no"
+msgstr "телефон: не"
 
 msgid "bot.moderation.card.deals"
 msgstr "договора: {count}"

@@ -51,6 +51,7 @@ SPECIALIST = PersonContext(
     district="Лиман",
     joined_at=NOW - timedelta(days=3),
     trust_level=0,
+    phone_verified=False,
     deals_done=0,
 )
 CLIENT = PersonContext(
@@ -59,6 +60,7 @@ CLIENT = PersonContext(
     district="Детелинара",
     joined_at=NOW - timedelta(hours=5),
     trust_level=1,
+    phone_verified=True,
     deals_done=2,
     complaints_open=1,
     complaints_total=3,
@@ -126,7 +128,7 @@ def test_profile_card_tells_who_what_and_why(translator: Translator) -> None:
 
     assert text.startswith("<b>P2 · Премодерация</b> · новый профиль на проверку")
     assert "👤 <b>Алексей М.</b> · специалист: Сантехника · Лиман" in text
-    assert "в сервисе 3 дн. · доверие 0 · сделок: 0 · жалобы: 0 откр. из 0" in text
+    assert "в сервисе 3 дн. · доверие 0 · телефон: нет · сделок: 0 · жалобы: 0 откр. из 0" in text
     assert "📄 <b>Профиль специалиста</b>" in text
     assert "<i>Коротко о себе:</i> Сантехник с опытом 10 лет" in text
     assert "<i>О себе:</i> Устраняю засоры. Звоните •••, приеду сегодня." in text
@@ -161,7 +163,7 @@ def test_job_report_card_with_budget_reporter_and_admin_button(translator: Trans
 
     assert text.startswith("<b>P1 · Мошенничество</b> · жалоба")
     assert "👤 <b>Ирина С.</b> · клиент · Детелинара" in text
-    assert "в сервисе 5 ч · доверие 1 · сделок: 2 · жалобы: 1 откр. из 3" in text
+    assert "в сервисе 5 ч · доверие 1 · телефон: да · сделок: 2 · жалобы: 1 откр. из 3" in text
     assert "<i>Описание:</i> Предоплата 50% &lt;на карту&gt; &amp; сразу" in text
     assert "<i>Бюджет:</i> 3 000–5 000 RSD" in text
     assert "жалоба от специалиста: мошенничество — «Просит предоплату»" in text

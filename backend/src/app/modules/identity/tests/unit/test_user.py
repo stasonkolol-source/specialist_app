@@ -19,9 +19,10 @@ from app.modules.identity.domain.user import (
 from app.modules.identity.errors import (
     AccountDeletedError,
     InvalidDisplayNameError,
+    InvalidPhoneContactError,
     UserAlreadyDeletedError,
 )
-from app.platform.contracts.events.identity import UserRegistered, UserUpdated
+from app.platform.contracts.events.identity import PhoneVerified, UserRegistered, UserUpdated
 from app.platform.kernel.errors import ProgrammingError
 from app.platform.kernel.ids import CityId
 from app.platform.kernel.localized import Locale
@@ -237,3 +238,36 @@ def test_privacy_shows_telegram_by_default_and_keeps_the_phone_hidden() -> None:
     user.delete(by=None, now=NOW)
     with pytest.raises(AccountDeletedError):
         user.set_privacy(show_telegram=True)
+
+
+def test_verify_phone_sets_the_badge_once_per_number() -> None:
+    user = register()
+    user.pull_events()
+
+    assert user.verify_phone(phone_e164="+381641234567", now=NOW)
+    assert (user.phone_e164, user.phone_verified_at) == ("+381641234567", NOW)
+    [event] = user.pull_events()
+    assert isinstance(event, PhoneVerified)
+    assert event.user_id == user.id
+    assert "381641234567" not in repr(event)  # номер — только в агрегате
+
+    assert not user.verify_phone(phone_e164="+381641234567", now=NOW + timedelta(days=1))
+    assert user.pull_events() == []
+    assert user.verify_phone(phone_e164="+79991234567", now=NOW + timedelta(days=2))
+    assert user.phone_e164 == "+79991234567"
+    assert user.trust_signals(now=NOW, active_sanctions=0).phone_verified
+
+
+@pytest.mark.parametrize("phone", ["381641234567", "+0641234567", "+12345", "+1234567890123456"])
+def test_verify_phone_takes_only_e164(phone: str) -> None:
+    with pytest.raises(InvalidPhoneContactError):
+        register().verify_phone(phone_e164=phone, now=NOW)
+
+
+def test_deleted_user_cannot_verify_and_forget_drops_the_phone() -> None:
+    user = register()
+    user.verify_phone(phone_e164="+381641234567", now=NOW)
+    user.forget(now=NOW)
+    assert (user.phone_e164, user.phone_verified_at) == (None, None)
+    with pytest.raises(AccountDeletedError):
+        user.verify_phone(phone_e164="+381641234567", now=NOW)

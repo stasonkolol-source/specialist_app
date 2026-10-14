@@ -8,6 +8,8 @@
 // обещаем, только если ему можно писать (ADR-0011): иначе — как открыть канал: чат с ботом
 // («Старт») и «Разрешить сообщения» (requestWriteAccess), на проверке и у опубликованного.
 // Опубликованному, пока нет подписки на заявки или шаблона отклика, — «Первые шаги» (UX №9).
+// Блок «Доверие» — «Подтвердить телефон» одним нажатием, при любом статусе профиля: бейдж
+// «Телефон подтверждён» клиентам, номер — никому (shared/PhoneVerify.tsx).
 // Блоки артборда, чьих экранов ещё нет, появятся со своими шагами: «За 30 дней» и «Скоро» — v1.
 import type { HintOut, ProfileOut } from '@sosed/api-client';
 import { availableUntil, quickHour } from '@sosed/domain';
@@ -47,6 +49,7 @@ import type { MouseEvent } from 'react';
 import { useEffect, useId } from 'react';
 
 import { LoadState } from '../shared/LoadState.tsx';
+import { PhoneVerify } from '../shared/PhoneVerify.tsx';
 import { SaveError } from '../shared/SaveError.tsx';
 import { botChatLink, telegramBot } from '../shared/bot.ts';
 import { useBecomeFlow, useStepButton } from '../shared/flow.ts';
@@ -214,6 +217,7 @@ function Cabinet({ profile }: { profile: ProfileOut }) {
         )}
       </Card>
       {profile.status === 'published' && <FirstSteps />}
+      <PhoneVerify titled />
       <nav aria-label={t('cabinet.manage')}>
         <Group>
           <Row

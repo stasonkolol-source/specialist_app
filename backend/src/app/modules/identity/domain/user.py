@@ -19,10 +19,12 @@ from app.modules.identity.domain.trust import TrustLevel, TrustSignals
 from app.modules.identity.errors import (
     AccountDeletedError,
     InvalidDisplayNameError,
+    InvalidPhoneContactError,
     UserAlreadyDeletedError,
 )
 from app.platform.contracts.events.identity import (
     EntryPoint,
+    PhoneVerified,
     UserDeleted,
     UserRegistered,
     UserUpdated,
@@ -39,6 +41,8 @@ SEEN_EVERY: Final = timedelta(minutes=15)
 """Время входа и «был в сети» обновляются не чаще: Mini App входит при каждом открытии, и
 запись на каждый запуск меняла бы версию аккаунта (ETag S31) без пользы."""
 DELETED_DISPLAY_NAME = "Удалённый пользователь"
+E164: Final = re.compile(r"\+[1-9]\d{6,14}")
+"""Номер в E.164: «+», код страны без нуля, всего 7–15 цифр."""
 
 
 class UserStatus(StrEnum):
@@ -286,6 +290,20 @@ class User(VersionedAggregate):
         self.ui_locale = locale
         if changed:
             self._record(UserUpdated(user_id=self.id, fields=tuple(changed), occurred_at=now))
+
+    def verify_phone(self, *, phone_e164: str, now: datetime) -> bool:
+        """Телефон подтверждён подписанным контактом Telegram (`requestContact`, ADR-0009):
+        бейдж «Телефон подтверждён». Номер хранится ради «один номер — один аккаунт» и наружу не
+        уходит. Тот же номер повторно ничего не меняет (False); новый заменяет прежний."""
+        self.ensure_active()
+        if not E164.fullmatch(phone_e164):
+            raise InvalidPhoneContactError(reason="phone")
+        if self.phone_e164 == phone_e164 and self.phone_verified_at is not None:
+            return False
+        self.phone_e164 = phone_e164
+        self.phone_verified_at = now
+        self._record(PhoneVerified(user_id=self.id, occurred_at=now))
+        return True
 
     def apply_trust_level(self, level: TrustLevel, *, now: datetime) -> None:
         """Записать пересчитанный уровень доверия (политика `trust_level`, §13.2)."""

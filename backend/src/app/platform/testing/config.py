@@ -1,4 +1,4 @@
-"""Фейк конфигурации клиентов для тестов (ADR-0020 §11)."""
+"""Фейки конфигурации клиентов и флагов для тестов (ADR-0020 §11)."""
 
 from collections.abc import Mapping
 from dataclasses import dataclass, field
@@ -20,3 +20,17 @@ class FakeLegalVersions:
 
     async def legal_versions(self) -> Mapping[str, str]:
         return dict(self.versions)
+
+
+@dataclass
+class FakeFeatureFlags:
+    """FeatureFlags: включённые флаги и их параметры задаёт тест."""
+
+    enabled: set[str] = field(default_factory=set)
+    values: dict[str, object] = field(default_factory=dict)
+
+    async def is_enabled(self, key: str) -> bool:
+        return key in self.enabled
+
+    async def value(self, key: str) -> object | None:
+        return self.values.get(key) if key in self.enabled else None
