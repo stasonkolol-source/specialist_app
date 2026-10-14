@@ -1,10 +1,18 @@
 """Реализация SpecialistsApi (ADR-0020 §6): проверка профиля и работ портфолио для модерации,
-профили для поиска."""
+профили для поиска.
+
+Публичные тексты (B3, S-вариант снимка одобренной версии): правка опубликованного профиля видна
+сразу, а проверяется после — поэтому имя показывается с маской контактов всегда, а заголовок,
+«о себе» и подписи работ автора с уровнем доверия ≤ 1 — тоже с маской. Модерация читает профиль
+без маски (`profile_for_review`, `profiles_for_index`)."""
 
 from collections.abc import Collection
+from dataclasses import replace
+from typing import Final
 from uuid import UUID
 
 from app.modules.catalog.api import CatalogApi
+from app.modules.identity.api import IdentityApi
 from app.modules.specialists.api import (
     PortfolioWorkRef,
     ProfileForIndex,
@@ -28,10 +36,14 @@ from app.modules.specialists.errors import ProfileNotFoundError
 from app.platform.db.port import UnitOfWork
 from app.platform.kernel.clock import Clock
 from app.platform.kernel.ids import MediaId, UserId
+from app.platform.text.contact_masking import mask_contacts
 
 REVIEWABLE = frozenset(
     {ProfileStatus.PENDING_REVIEW, ProfileStatus.PUBLISHED, ProfileStatus.HIDDEN}
 )
+MASKED_TRUST_LEVEL: Final = 1
+"""До этого уровня доверия включительно тексты профиля на выдаче — с маской контактов (B3):
+у уровня 2 сделки уже были, у 0–1 правку ещё никто не смотрел."""
 
 
 class SpecialistsFacade(SpecialistsApi):
@@ -43,11 +55,12 @@ class SpecialistsFacade(SpecialistsApi):
         portfolio: PortfolioQuery,
         works: PortfolioRepository,
         catalog: CatalogApi,
+        identity: IdentityApi,
         clock: Clock,
     ) -> None:
         self._uow, self._profiles, self._query = uow, profiles, query
         self._portfolio, self._works = portfolio, works
-        self._catalog, self._clock = catalog, clock
+        self._catalog, self._identity, self._clock = catalog, identity, clock
 
     async def profile_of(self, user_id: UserId) -> ProfileRef | None:
         view = await self._query.of_user(user_id)
@@ -62,10 +75,39 @@ class SpecialistsFacade(SpecialistsApi):
         return await self._query.for_index(profile_ids)
 
     async def public_profile(self, profile_id: UUID) -> PublicProfile | None:
-        return await self._query.public(profile_id)
+        profile = await self._query.public(profile_id)
+        if profile is None:
+            return None
+        name = mask_contacts(profile.display_name)
+        author = await self._identity.get_user(profile.user_id)
+        if author is not None and author.trust_level > MASKED_TRUST_LEVEL:
+            return replace(profile, display_name=name)
+        return replace(
+            profile,
+            display_name=name,
+            headline=_masked(profile.headline),
+            about=_masked(profile.about),
+            works=tuple(replace(work, caption=_masked(work.caption)) for work in profile.works),
+        )
 
     async def public_cards(self, profile_ids: Collection[UUID]) -> dict[UUID, PublicCard]:
-        return await self._query.public_cards(profile_ids) if profile_ids else {}
+        cards = await self._query.public_cards(profile_ids) if profile_ids else {}
+        return {
+            profile_id: replace(card, display_name=mask_contacts(card.display_name))
+            for profile_id, card in cards.items()
+        }
+
+    async def untrusted(self, profile_ids: Collection[UUID]) -> frozenset[UUID]:
+        cards = await self._query.public_cards(profile_ids) if profile_ids else {}
+        if not cards:
+            return frozenset()
+        authors = await self._identity.users({card.user_id for card in cards.values()})
+        return frozenset(
+            profile_id
+            for profile_id, card in cards.items()
+            if (author := authors.get(card.user_id)) is None
+            or author.trust_level <= MASKED_TRUST_LEVEL
+        )
 
     async def published_profile_ids(self, *, after: UUID | None, limit: int) -> list[UUID]:
         return await self._query.published_ids(after=after, limit=limit)
@@ -167,3 +209,7 @@ class SpecialistsFacade(SpecialistsApi):
                 request_work_review(self._uow, item, owner, now=now)
                 requested += 1
         return requested
+
+
+def _masked(text: str | None) -> str | None:
+    return mask_contacts(text) if text else text

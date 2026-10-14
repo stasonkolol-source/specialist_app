@@ -264,4 +264,5 @@ async def test_caption_edited_after_the_card_needs_a_new_decision(worker: AsyncC
         specialists = await request.get(SpecialistsApi)
         profile = await specialists.public_profile(owner.specialist.profile_id)
     assert profile is not None
-    assert [work.caption for work in profile.works] == ["Пишите в телеграм @qa_contact_test"]
+    # уровень доверия 0: подпись видна клиентам с маской контактов (B3)
+    assert [work.caption for work in profile.works] == ["Пишите в телеграм •••"]

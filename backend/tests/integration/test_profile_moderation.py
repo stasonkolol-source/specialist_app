@@ -1,7 +1,8 @@
 """Профиль исполнителя проходит модерацию (DEVELOPMENT_PLAN 2.8a): отправка → автопроверка →
 P2 (новый профиль всегда проверяет человек) → одобрение → опубликован и уведомление; отказ →
-снова черновик с причиной. Прайс — часть текста профиля: его правка — пост-модерация профиля
-(B3). Имя профиля, похожее на контакт или ник, — 422. Контейнер процесса, данные коммитятся.
+снова черновик с причиной. Прайс — часть текста профиля: его правка — пост-модерация профиля, а
+клиенты, пока автор не набрал доверия, видят контакты в прайсе и «о себе» под маской (B3). Имя
+профиля, похожее на контакт или ник, — 422. Контейнер процесса, данные коммитятся.
 """
 
 from collections.abc import AsyncIterator
@@ -23,6 +24,7 @@ from app.modules.moderation.application.use_cases.decide_case import (
 from app.modules.moderation.domain.cases import EntityType
 from app.modules.moderation.domain.pipeline import Route
 from app.modules.moderation.errors import CaseSupersededError
+from app.modules.pricing.api import PricingApi
 from app.modules.pricing.application.use_cases.add_service import AddService, AddServiceCommand
 from app.modules.pricing.domain.service import PriceType
 from app.modules.specialists.api import SpecialistsApi
@@ -349,5 +351,46 @@ async def test_price_list_edit_is_checked_with_the_profile(container: AsyncConta
         )
         assert isinstance(signals, list)
         assert any("contacts" in signal for signal in signals)
+    finally:
+        await drop_jobs(container, user_id)
+
+
+async def test_texts_of_a_new_author_are_shown_masked(container: AsyncContainer) -> None:
+    """B3 (S-вариант): правка опубликованного видна сразу, а проверяется после — у автора уровня
+    доверия ≤ 1 контакты в «о себе» и прайсе клиенты видят под маской; у уровня 2 — как есть."""
+    user_id, profile_id = await published_profile(container)
+    try:
+        async with container() as request:
+            await (await request.get(EditProfile))(
+                EditProfileCommand(actor_id=user_id, about="Пишите: t.me/ivan_master")
+            )
+            await (await request.get(AddService))(
+                AddServiceCommand(
+                    actor_id=user_id,
+                    title="Срочный вызов",
+                    description="Звоните +381 64 123 4567",
+                    price_type=PriceType.FIXED,
+                    price_min=200_000,
+                )
+            )
+
+        async with container() as request:
+            profile = await (await request.get(SpecialistsApi)).public_profile(profile_id)
+            shown = await (await request.get(PricingApi)).public_services(profile_id)
+        assert profile is not None
+        assert profile.about == "Пишите: •••"
+        assert [service.description for service in shown] == [None, "Звоните •••"]
+
+        engine = await container.get(AsyncEngine)
+        async with engine.begin() as conn:
+            await conn.execute(
+                text("UPDATE identity.users SET trust_level = 2 WHERE id = :id"), {"id": user_id}
+            )
+        async with container() as request:
+            profile = await (await request.get(SpecialistsApi)).public_profile(profile_id)
+            shown = await (await request.get(PricingApi)).public_services(profile_id)
+        assert profile is not None
+        assert profile.about == "Пишите: t.me/ivan_master"
+        assert shown[1].description == "Звоните +381 64 123 4567"
     finally:
         await drop_jobs(container, user_id)

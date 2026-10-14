@@ -54,7 +54,8 @@ class PricingApi(Protocol):
         ...
 
     async def public_services(self, profile_id: UUID) -> list[PublicService]:
-        """Видимые позиции прайса профиля в порядке S35: «Скрытые» и удалённые — нет."""
+        """Видимые позиции прайса профиля в порядке S35: «Скрытые» и удалённые — нет. У автора
+        с уровнем доверия ≤ 1 контакты в названии, описании и единице скрыты маской (B3)."""
         ...
 
     async def text_for_review(self, profile_id: UUID) -> str:
