@@ -190,7 +190,7 @@ async def test_only_the_first_public_publication_is_checked(
         occurred_at=PUBLISHED,
     )
 
-    await post_concierge_card(event, recorder)  # type: ignore[arg-type]
+    await post_concierge_card(event, recorder)
 
     assert len(recorder.commands) == posted
     if posted:

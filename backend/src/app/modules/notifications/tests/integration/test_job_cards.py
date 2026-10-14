@@ -166,7 +166,9 @@ async def nudged_at_night(notifications: Notifications, job_id: UUID) -> UserId:
     await notifications.notify(quiet_job(client, job_id))
     [waiting] = await notifications.deliveries(client)
     assert waiting["status"] == "queued"
-    assert waiting["not_before"] > notifications.clock.now()
+    not_before = waiting["not_before"]
+    assert isinstance(not_before, datetime)
+    assert not_before > notifications.clock.now()
     return client
 
 
