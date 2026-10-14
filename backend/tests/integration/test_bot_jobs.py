@@ -316,14 +316,17 @@ async def test_jobs_lists_active_jobs_with_their_state(harness: BotHarness) -> N
     )
 
     before_review = await harness.send(client, "/jobs")
-    await execute(
-        harness, "UPDATE jobs.responses SET review = 'clear' WHERE job_id = :id", id=answered
+    await execute(  # проверка пройдена: отклик виден клиенту и занял место (B4)
+        harness,
+        "WITH placed AS (UPDATE jobs.jobs SET responses_count = 1 WHERE id = :id)"
+        " UPDATE jobs.responses SET review = 'clear', placed = true WHERE job_id = :id",
+        id=answered,
     )
     after_review = await harness.send(client, "/jobs")
 
-    assert before_review.text == (
+    assert before_review.text == (  # отклик на проверке места ещё не занял (B4)
         "<b>Активные заявки</b>\n\n"
-        f"• <b>{TITLE}</b> — откликов: 1 из 5\n"
+        f"• <b>{TITLE}</b> — ждём откликов\n"
         "• <b>Помыть окна</b> — ждём откликов\n"
         "• <b>Покрасить стену</b> — на проверке\n"
         f"• <b>{long_title}</b> — нужно исправить"

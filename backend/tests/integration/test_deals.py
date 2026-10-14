@@ -118,7 +118,7 @@ class World:
         return bearer(self.settings, user_id)
 
     async def response(self, performer: UserId, job_id: UUID) -> str:
-        """Отклик, уже прошедший проверку: клиент его видит."""
+        """Отклик, уже прошедший проверку: клиент его видит, место на заявке он занял (B4)."""
         body = {
             "message": f"Здравствуйте! Могу сегодня в 19:00. {new_id().hex[-8:]}",
             "price_type": "fixed",
@@ -132,7 +132,10 @@ class World:
         assert reply.status_code == 201, reply.text
         response_id: str = reply.json()["id"]
         await self.execute(
-            "UPDATE jobs.responses SET review = 'clear' WHERE id = :id", id=UUID(response_id)
+            "WITH placed AS (UPDATE jobs.jobs SET responses_count = responses_count + 1"
+            " WHERE id = (SELECT job_id FROM jobs.responses WHERE id = :id AND NOT placed))"
+            " UPDATE jobs.responses SET review = 'clear', placed = true WHERE id = :id",
+            id=UUID(response_id),
         )
         return response_id
 
