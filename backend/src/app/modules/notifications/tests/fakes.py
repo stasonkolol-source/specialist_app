@@ -92,6 +92,9 @@ class FakeIdentity:
     async def blocked_users(self, user_id: UserId) -> list[BlockedUser]:
         return []
 
+    async def completed_deals(self, user_ids: Collection[UserId]) -> dict[UserId, int]:
+        return {}
+
 
 @dataclass
 class FakeGeo:

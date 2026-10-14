@@ -1,6 +1,8 @@
 // S24 Отклик глазами клиента и S25 подтверждение выбора (DEVELOPMENT_PLAN 6.2): мини-профиль
-// исполнителя (фото, имя, рейтинг со звездой или «Новый специалист», «Телефон подтверждён»,
-// «Откликнулся первым»; профиль специалиста — ссылкой на S08), предложение — цена, «Когда сможет»,
+// исполнителя (фото, имя, рейтинг со звездой или «Новый специалист», район и вид, строка фактов
+// и не больше двух бейджей — PerformerFacts; профиль специалиста — ссылкой на S08; под карточкой
+// — «Профиль проверен модератором 12 октября» и «Как мы проверяем»: шторка «Что проверено», ZZP
+// 35/2026 ст. 19–20), предложение — цена, «Когда сможет»,
 // сообщение и нижней строкой «Ваш бюджет — …» и «Отклонить»: после подтверждения место
 // освобождается. MainButton «Выбрать исполнителем» открывает шторку S25: что изменится сразу
 // (адрес исполнителю, уведомление остальным) плоским списком, «если сделка сорвётся — заявка
@@ -18,14 +20,16 @@ import type { ChangedOffer } from '@sosed/hooks';
 import {
   changedOffer,
   isUnavailable,
+  openChecked,
   useAcceptResponse,
+  useCheckedTarget,
   useDeclineResponse,
   useJob,
   useMyDeals,
   useResponseCards,
   useStartConversation,
 } from '@sosed/hooks';
-import { useTranslation } from '@sosed/i18n';
+import { useFormat, useTranslation } from '@sosed/i18n';
 import {
   useBackButton,
   useBottomButtonState,
@@ -34,7 +38,6 @@ import {
 } from '@sosed/platform';
 import {
   Avatar,
-  Badge,
   Banner,
   Button,
   Card,
@@ -56,6 +59,7 @@ import { useStepButton } from '../shared/flow.ts';
 import { JobUnavailable } from '../shared/JobUnavailable.tsx';
 import { useBudgetText, useOfferPrice, usePerformerPlace } from '../shared/labels.ts';
 import { LoadError } from '../shared/LoadError.tsx';
+import { PerformerBadges, PerformerFacts, performerKind } from '../shared/PerformerFacts.tsx';
 import { PerformerRating } from '../shared/PerformerRating.tsx';
 import {
   JOBS_PATHS,
@@ -121,14 +125,16 @@ function Choice({ job, card, others }: { job: JobOut; card: ResponseCardOut; oth
   const open = job.status === 'published' && OPEN.has(card.status);
   const budget = budgetText(job);
   const offerId = useId();
+  // пока открыта шторка «Что проверено», кнопки Telegram под затемнением нажимать нельзя
+  const checked = useCheckedTarget() !== null;
   // пока открыта шторка S25, нижняя панель у неё (BottomBar): «Написать» экрана прячется сама
   useStepButton({
     text: t('choice.choose'),
-    visible: open,
+    visible: open && !checked,
     enabled: !decline.isPending,
     onClick: () => setConfirming(true),
   });
-  const write = useWrite(card);
+  const write = useWrite(card, checked);
   // отказ необратим — сначала нативное подтверждение, как «Отозвать отклик» на S17
   const reject = async () => {
     if (!(await platform.confirm(t('choice.declineConfirm')))) return;
@@ -193,12 +199,13 @@ function Choice({ job, card, others }: { job: JobOut; card: ResponseCardOut; oth
   );
 }
 
-/** «Написать»: диалог по отклику — начать или открыть начатый; отозванному писать некуда. */
-function useWrite(card: ResponseCardOut) {
+/** «Написать»: диалог по отклику — начать или открыть начатый; отозванному писать некуда;
+ *  `hidden` — пока открыта шторка. */
+function useWrite(card: ResponseCardOut, hidden: boolean) {
   const { t: common } = useTranslation();
   const router = useRouter();
   const start = useStartConversation();
-  const available = card.status !== 'withdrawn';
+  const available = card.status !== 'withdrawn' && !hidden;
   const begin = () =>
     start.mutate(
       { response_id: card.id },
@@ -221,9 +228,12 @@ function useWrite(card: ResponseCardOut) {
   };
 }
 
-/** Мини-профиль: фото, имя, рейтинг, бейджи; профиль специалиста — ссылкой на S08. */
+/** Мини-профиль: фото, имя, рейтинг, факты, бейджи; профиль специалиста — ссылкой на S08. Под
+ *  карточкой — когда модератор проверил профиль и «Как мы проверяем» (шторка): внутри ссылки
+ *  кнопке не место. */
 function Performer({ card }: { card: ResponseCardOut }) {
   const { t } = useTranslation('jobs');
+  const format = useFormat();
   const router = useRouter();
   const { performer } = card;
   const name = performer.display_name || '—';
@@ -231,52 +241,59 @@ function Performer({ card }: { card: ResponseCardOut }) {
     performer.avatar?.variants.find((v) => v.name === 'thumb') ?? performer.avatar?.variants[0];
   const profile = performer.profile_id;
   const place = usePerformerPlace(performer);
+  const checkedAt = performer.profile_checked_at;
   return (
-    <Card
-      tight
-      href={profile ? router.history.createHref(specialistPath(profile)) : undefined}
-      onClick={
-        profile
-          ? (event) => {
-              event.preventDefault();
-              void router.navigate({ to: specialistPath(profile) });
-            }
-          : undefined
-      }
-      aria-label={profile ? `${name}: ${t('choice.profile')}` : undefined}
-    >
-      <div className="flex items-center gap-3">
-        <Avatar
-          name={name}
-          size="lg"
-          src={avatar?.url}
-          placeholder={performer.avatar?.placeholder}
-        />
-        <div className="flex min-w-0 grow flex-col gap-1">
-          <Heading variant="h2" as="h1">
-            {name}
-          </Heading>
-          {/* «Новый специалист» — в строке рейтинга, отдельным бейджем не повторяем */}
-          <PerformerRating
-            rating={performer.rating}
-            count={performer.rating_count}
-            meta={[place]}
+    <>
+      <Card
+        tight
+        href={profile ? router.history.createHref(specialistPath(profile)) : undefined}
+        onClick={
+          profile
+            ? (event) => {
+                event.preventDefault();
+                void router.navigate({ to: specialistPath(profile) });
+              }
+            : undefined
+        }
+        aria-label={profile ? `${name}: ${t('choice.profile')}` : undefined}
+      >
+        <div className="flex items-center gap-3">
+          <Avatar
+            name={name}
+            size="lg"
+            src={avatar?.url}
+            placeholder={performer.avatar?.placeholder}
           />
+          <div className="flex min-w-0 grow flex-col gap-1">
+            <Heading variant="h2" as="h1">
+              {name}
+            </Heading>
+            {/* «Новый специалист» — в строке рейтинга, отдельным бейджем не повторяем */}
+            <PerformerRating
+              rating={performer.rating}
+              count={performer.rating_count}
+              meta={[place, performerKind(performer, t)]}
+            />
+            <PerformerFacts performer={performer} />
+          </div>
+          {profile && <Icon name="chev-right" className="shrink-0 text-text2" />}
         </div>
-        {profile && <Icon name="chev-right" className="shrink-0 text-text2" />}
-      </div>
-      {(performer.phone_verified || card.is_first || performer.kind !== 'pro') && (
-        <div className="flex flex-wrap gap-1.5">
-          {performer.phone_verified && (
-            <Badge tone="info" icon="shield">
-              {t('manage.phone')}
-            </Badge>
-          )}
-          {card.is_first && <Badge tone="ok">{t('manage.first')}</Badge>}
-          {performer.kind !== 'pro' && <Badge>{t('manage.casual')}</Badge>}
+        <PerformerBadges card={card} />
+      </Card>
+      {checkedAt && (
+        <div className="-mt-1.5 flex items-center justify-between gap-3 px-1">
+          <Text as="span" variant="cap">
+            {t('manage.checkedOn', { date: format.dateGenitive(new Date(checkedAt)) })}
+          </Text>
+          <LinkButton
+            className="-mr-2 shrink-0"
+            onClick={() => openChecked({ kind: 'moderated', checkedAt })}
+          >
+            {t('manage.howChecked')}
+          </LinkButton>
         </div>
       )}
-    </Card>
+    </>
   );
 }
 

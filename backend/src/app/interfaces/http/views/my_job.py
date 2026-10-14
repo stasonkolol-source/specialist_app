@@ -1,6 +1,9 @@
 """BFF откликов на свою заявку S23 (DEVELOPMENT_PLAN 5.6): отклики из jobs, исполнитель — из
-specialists (профиль, основной район или «весь город» по справочнику geo), media (фото профиля),
-reviews (рейтинг или «Новый специалист») и identity (имя подработчика, «Телефон подтверждён»).
+specialists (профиль, основной район или «весь город» по справочнику geo, работы, founding,
+дата проверки модератором), media (фото профиля), reviews (рейтинг или «Новый специалист»,
+отзывы «до платформы»), identity (имя подработчика, «Телефон подтверждён», с какого времени в
+«Соседях», сделок, «Новый аккаунт») и search («Обычно отвечает за …»): факты, по которым клиент
+выбирает незнакомого исполнителя, — только счётчики и даты, не оценки (ADR-0016).
 
 Только владельцу: чужая заявка — 404 `job_not_found`. Ответ, в котором есть новые отклики,
 отмечает, что клиент их видел: бейдж новых на S22 гаснет, уведомление о них не уходит. S23
@@ -29,7 +32,8 @@ from app.modules.geo.api import GeoApi
 from app.modules.identity.api import IdentityApi
 from app.modules.jobs.api import JobsApi
 from app.modules.media.api import MediaApi
-from app.modules.reviews.api import ReviewsApi
+from app.modules.reviews.api import PRE_PLATFORM, ReviewsApi
+from app.modules.search.api import SearchApi
 from app.modules.specialists.api import SpecialistsApi
 from app.platform.db.port import UnitOfWork
 from app.platform.http.money import MoneyOut
@@ -67,6 +71,23 @@ class ResponsePerformerCardOut(BaseModel):
     rating_count: int
     is_new: bool = Field(description="«Новый специалист»: меньше трёх отзывов по сделкам")
     phone_verified: bool
+    member_since: datetime | None = Field(
+        description="Когда создан аккаунт: «В „Соседях“ 3 месяца»; аккаунт удалён — null"
+    )
+    completed_deals: int = Field(description="Сделок в «Соседях», которые исполнитель завершил")
+    works_count: int = Field(description="Опубликованных работ портфолио; без профиля — 0")
+    pre_platform_count: int = Field(
+        description="Отзывов «до платформы» (по приглашениям, в рейтинг не входят); без профиля — 0"
+    )
+    is_founding: bool = Field(description="«Приглашён командой»: founding-специалист")
+    profile_checked_at: datetime | None = Field(
+        description="«Проверен модератором»: когда профиль опубликован после проверки; без профиля"
+        " — null"
+    )
+    response_time_minutes: int | None = Field(
+        description="«Обычно отвечает за …», как на S08; меньше пяти диалогов с ответом — null"
+    )
+    is_new_account: bool = Field(description="«Новый аккаунт»: уровень доверия 0")
 
 
 class ResponseCardOut(BaseModel):
@@ -105,12 +126,15 @@ async def list_response_cards(
     media: FromDishka[MediaApi],
     reviews: FromDishka[ReviewsApi],
     geo: FromDishka[GeoApi],
+    search: FromDishka[SearchApi],
     uow: FromDishka[UnitOfWork],
     locale: FromDishka[Locale],
 ) -> ResponseCardsOut:
-    """Отклики на свою заявку для S23: исполнитель с фото, районом и рейтингом, «Откликнулся
-    первым», новые для клиента. Ответ отмечает отклики просмотренными. Отклики тех, с кем у
-    клиента блокировка (4.7), не показываются: имена и блокировки — одним чтением identity."""
+    """Отклики на свою заявку для S23: исполнитель с фото, районом, рейтингом и фактами (стаж в
+    «Соседях», сделки, работы, отзывы до платформы, время ответа, проверка модератором),
+    «Откликнулся первым», новые для клиента. Ответ отмечает отклики просмотренными. Отклики тех,
+    с кем у клиента блокировка (4.7), не показываются: имена и блокировки — одним чтением
+    identity."""
     responses = await jobs.owner_responses(job_id, principal.user_id)
     users = await identity.users(
         {response.performer_id for response in responses}, viewer_id=principal.user_id
@@ -124,6 +148,9 @@ async def list_response_cards(
         {r.profile_id for r in responses if r.profile_id is not None}, specialists, identity
     )
     ratings = await reviews.summaries(list(cards)) if cards else {}
+    pre_platform = await reviews.review_counts(list(cards), kind=PRE_PLATFORM) if cards else {}
+    response_times = await search.response_times(list(cards))
+    deals = await identity.completed_deals({response.performer_id for response in responses})
     avatars = await media.refs(
         [card.avatar_media_id for card in cards.values() if card.avatar_media_id is not None]
     )
@@ -174,6 +201,18 @@ async def list_response_cards(
                     rating_count=rating.count if rating is not None else 0,
                     is_new=rating is None or rating.is_new,
                     phone_verified=bool(user is not None and user.phone_verified),
+                    member_since=(
+                        user.created_at if user is not None and not user.is_deleted else None
+                    ),
+                    completed_deals=deals.get(response.performer_id, 0),
+                    works_count=card.works_count if card is not None else 0,
+                    pre_platform_count=pre_platform.get(card.id, 0) if card is not None else 0,
+                    is_founding=card is not None and card.is_founding,
+                    profile_checked_at=card.published_at if card is not None else None,
+                    response_time_minutes=(
+                        response_times.get(card.id) if card is not None else None
+                    ),
+                    is_new_account=user is not None and user.trust_level == 0,
                 ),
             )
         )

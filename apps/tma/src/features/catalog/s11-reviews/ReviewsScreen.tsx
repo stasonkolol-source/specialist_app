@@ -1,9 +1,11 @@
 // S11 Отзывы о специалисте (DEVELOPMENT_PLAN 4.6): сводка — средняя оценка, звёзды, сколько
 // отзывов, распределение оценок и средние по критериям; ниже — вкладки «По сделкам · 37» и «До
 // платформы · 2» (7.6а: отзывы по приглашениям S55 с пометкой, в рейтинг не входят) и отзывы
-// вкладки, новые первыми. Совсем нет отзывов — «Отзывов пока нет»: специалист новый; пустая
+// вкладки, новые первыми; `?kind=pre_platform` открывает вторую вкладку сразу (строка «Отзывы до
+// платформы · 3» на S08). Совсем нет отзывов — «Отзывов пока нет»: специалист новый; пустая
 // вкладка — своё объяснение. Ответы специалиста под отзывами и «Показать ещё» — 7.3. «⋯» у отзыва —
-// жалоба на него (шторка S46, 4.7; вошедшему). «Как мы проверяем отзывы» (S51) — со своим шагом.
+// жалоба на него (шторка S46, 4.7; вошедшему). «Как мы проверяем» под правилом рейтинга — шторка
+// «Что проверено» (ZZP 35/2026 ст. 19–20: как проверяются профиль и отзывы); страница S51 — v1.
 // Имя и услуга в шапке — из профиля S08 (обычно уже в кэше).
 import type {
   CardRatingOut,
@@ -12,7 +14,13 @@ import type {
   ViewsListSpecialistReviewsKind,
 } from '@sosed/api-client';
 import { getSession } from '@sosed/api-client';
-import { isUnavailable, openReport, useSpecialistCard, useSpecialistReviews } from '@sosed/hooks';
+import {
+  isUnavailable,
+  openChecked,
+  openReport,
+  useSpecialistCard,
+  useSpecialistReviews,
+} from '@sosed/hooks';
 import { useFormat, useLocale, useTranslation } from '@sosed/i18n';
 import { useBackButton } from '@sosed/platform';
 import {
@@ -20,6 +28,7 @@ import {
   Card,
   EmptyState,
   Heading,
+  LinkButton,
   ProgressBar,
   Segmented,
   Skeleton,
@@ -28,12 +37,13 @@ import {
   Stars,
   Text,
 } from '@sosed/ui-web';
-import { useParams, useRouter } from '@tanstack/react-router';
+import { useParams, useRouter, useSearch } from '@tanstack/react-router';
 import { useState } from 'react';
 
 import { LoadError } from '../shared/LoadError.tsx';
 import { ReviewCard, ReviewCardSkeleton } from '../shared/ReviewCard.tsx';
 import { Unavailable } from '../shared/Unavailable.tsx';
+import type { ReviewsSearch } from '../shared/paths.ts';
 import { CARD_PATHS } from '../shared/paths.ts';
 
 /** Критерии оценки отзыва (ARCHITECTURE §7.3 `reviews.criteria`) в порядке артборда. */
@@ -45,7 +55,8 @@ export function ReviewsScreen() {
   const router = useRouter();
   const locale = useLocale();
   const card = useSpecialistCard(profileId, locale);
-  const [kind, setKind] = useState<ViewsListSpecialistReviewsKind>('deal');
+  const search: ReviewsSearch = useSearch({ strict: false });
+  const [kind, setKind] = useState<ViewsListSpecialistReviewsKind>(search.kind ?? 'deal');
   const reviews = useSpecialistReviews(profileId, locale, kind);
   useBackButton(() => {
     if (router.history.canGoBack()) router.history.back();
@@ -219,6 +230,12 @@ function Reviews({
             ]}
           />
           <Text variant="cap">{t('reviews.policy')}</Text>
+          <LinkButton
+            className="-mt-2 -ml-2 self-start"
+            onClick={() => openChecked({ kind: 'moderated', checkedAt: card.published_at })}
+          >
+            {t('profile.howChecked')}
+          </LinkButton>
           {list}
           {more && !switching && (
             <Button

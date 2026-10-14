@@ -386,8 +386,9 @@ export function myJobsFixture(feed: FeedFixture[] = FEED_JOBS): JobOut[] {
   ];
 }
 
-/** Отклики на люстру как на артборде S23: первый — с рейтингом и телефоном, подработка, третий —
- *  на сербском. */
+/** Отклики на люстру как на артборде S23: первый — с рейтингом, телефоном и фактами (год в
+ *  «Соседях», сделки, работы, отзывы до платформы, время ответа), второй — без профиля и с новым
+ *  аккаунтом, третий — на сербском. Профили проверены модератором (profile_checked_at). */
 export function responseCardsFixture(): ResponseCardOut[] {
   const base = {
     status: 'submitted' as const,
@@ -406,6 +407,14 @@ export function responseCardsFixture(): ResponseCardOut[] {
     rating_count: 0,
     is_new: true,
     phone_verified: false,
+    member_since: '2026-09-28T10:00:00Z',
+    completed_deals: 0,
+    works_count: 0,
+    pre_platform_count: 0,
+    is_founding: false,
+    profile_checked_at: null,
+    response_time_minutes: null,
+    is_new_account: true,
   };
   return [
     {
@@ -427,6 +436,13 @@ export function responseCardsFixture(): ResponseCardOut[] {
         rating_count: 37,
         is_new: false,
         phone_verified: true,
+        member_since: '2025-09-01T10:00:00Z',
+        completed_deals: 4,
+        works_count: 18,
+        pre_platform_count: 2,
+        profile_checked_at: '2026-09-20T10:00:00Z',
+        response_time_minutes: 15,
+        is_new_account: false,
       },
     },
     {
@@ -453,6 +469,11 @@ export function responseCardsFixture(): ResponseCardOut[] {
         rating: 4.7,
         rating_count: 18,
         is_new: false,
+        member_since: '2026-04-01T10:00:00Z',
+        completed_deals: 1,
+        works_count: 3,
+        profile_checked_at: '2026-05-10T10:00:00Z',
+        is_new_account: false,
       },
     },
   ];

@@ -153,6 +153,10 @@ class ReviewQueries(Protocol):
         """Сколько опубликованных отзывов этого вида у профиля."""
         ...
 
+    async def counts_of(self, profile_ids: Collection[UUID], kind: ReviewKind) -> dict[UUID, int]:
+        """То же пачкой; профиля без таких отзывов нет в ответе."""
+        ...
+
     async def public(self, review_id: UUID) -> PublicReview | None:
         """Один опубликованный (не стёртый) отзыв."""
         ...

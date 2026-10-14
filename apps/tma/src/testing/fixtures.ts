@@ -781,7 +781,10 @@ export function specialistCardFor(
     rating: 4.9,
     rating_count: 37,
     is_new: false,
-    badges: ['phone_verified'],
+    // «Отзывы до платформы · 2» — как на вкладке S11 (cardReviewsPage)
+    pre_platform_count: 2,
+    // опубликованный профиль прочитал модератор: «Проверен модератором», дата — published_at
+    badges: ['phone_verified', 'moderated'],
     response_time_minutes: 15,
     services: CARD_SERVICES.slice(0, 3),
     services_count: CARD_SERVICES.length,
@@ -815,7 +818,8 @@ export function plainCardFor(card: SpecialistCardOut): SpecialistProfileOut {
     rating: card.rating,
     rating_count: card.rating_count,
     is_new: card.is_new,
-    badges: card.badges,
+    pre_platform_count: 0,
+    badges: [...card.badges, 'moderated'],
     response_time_minutes: null,
     services: [],
     services_count: 0,

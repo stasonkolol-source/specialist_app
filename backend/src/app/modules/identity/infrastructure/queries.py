@@ -203,6 +203,17 @@ class SqlIdentityQuery(SqlQuery):
         )
         return int(row["count"]) if row is not None else 0
 
+    async def completed_deals_of(self, user_ids: Collection[UserId]) -> dict[UserId, int]:
+        if not user_ids:
+            return {}
+        d = CompletedDealRow.__table__.c
+        rows = await self._fetch(
+            select(d.user_id, func.count().label("count"))
+            .where(d.user_id.in_(list(user_ids)))
+            .group_by(d.user_id)
+        )
+        return {UserId(row["user_id"]): int(row["count"]) for row in rows}
+
     async def staff_card(self, user_id: UserId, now: datetime) -> StaffUserCard | None:
         u, i = UserRow.__table__.c, AuthIdentityRow.__table__.c
         s, d = SessionRow.__table__.c, CompletedDealRow.__table__.c

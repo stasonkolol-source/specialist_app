@@ -64,6 +64,9 @@ class ReviewsFacade(ReviewsApi):
     async def review_count(self, profile_id: UUID, *, kind: str) -> int:
         return await self._queries.count_of(profile_id, ReviewKind(kind))
 
+    async def review_counts(self, profile_ids: Collection[UUID], *, kind: str) -> dict[UUID, int]:
+        return await self._queries.counts_of(profile_ids, ReviewKind(kind))
+
     async def open_invite(self, token: UUID) -> InviteRef | None:
         invite = await self._invites.find(token)
         if invite is None or not invite.usable(self._clock.now()):
