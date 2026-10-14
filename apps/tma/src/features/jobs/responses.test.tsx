@@ -4,6 +4,7 @@
 // квота дня, карточки по состояниям, «Отозвать»; шаблоны S57 — основной, «Сделать основным»,
 // третий — «удалите один», удаление и новый шаблон.
 import { setSession } from '@sosed/api-client';
+import { getNotificationsGetNotificationSettingsMockHandler } from '@sosed/api-client/mocks';
 import { uuidToBase62 } from '@sosed/links';
 import { act, fireEvent, screen, waitFor, within } from '@testing-library/react';
 import { HttpResponse, http } from 'msw';
@@ -11,7 +12,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { mainButton, pressBackButton, pressMainButton, startApp } from '../../testing/app.tsx';
 import { problem } from '../../testing/backend.ts';
-import { E2E_NOW } from '../../testing/fixtures.ts';
+import { E2E_NOW, NOTIFICATION_SETTINGS, WRITE_ACCESS } from '../../testing/fixtures.ts';
 import type { FeedFixture } from '../../testing/jobsBackend.ts';
 import {
   FEED_JOBS,
@@ -504,8 +505,31 @@ describe('S17 my responses', () => {
     );
   });
 
+  // бот не пишет первым (ADR-0011): без канала «бот напишет» — неправда
+  it('promises nothing from the bot while it cannot write', async () => {
+    withJobs((it) => {
+      it.responses = myResponsesFixture().map((item) =>
+        item.job.id === WARDROBE.card.id
+          ? { ...item, updated_at: new Date(E2E_NOW).toISOString() }
+          : item,
+      );
+    });
+    startApp('/jobs/responses?sent=true');
+
+    expect(
+      await screen.findByText('Отклик отправлен. Решение клиента появится здесь.'),
+    ).toBeTruthy();
+    expect(screen.queryByText(/бот напишет/)).toBeNull();
+  });
+
   // UX №1: после отправки — то, что подтвердил сервер; автопроверка ответила — «бот напишет»
   it('re-reads a just sent response until the check is done', async () => {
+    server.use(
+      getNotificationsGetNotificationSettingsMockHandler({
+        ...NOTIFICATION_SETTINGS,
+        telegram: WRITE_ACCESS,
+      }),
+    );
     withJobs((it) => {
       it.responses = myResponsesFixture().map((item) =>
         item.job.id === WARDROBE.card.id

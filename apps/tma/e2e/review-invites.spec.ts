@@ -110,7 +110,12 @@ for (const theme of THEMES) {
       // MainButton «Создать ссылку» — нативная, в DOM её нет: шторка «Кому», затем готовая ссылка
       await pressTelegram(page, 'main_button_pressed');
       const sheet = page.getByRole('dialog', { name: l.newTitle });
-      await sheet.getByRole('textbox', { name: l.name }).fill('Марко П.');
+      // шторка открылась целиком: в медленном WebKit ввод в поле, которое ещё перемонтируется,
+      // терялся, и ссылка уходила без имени
+      await expect(sheet).toBeVisible();
+      const name = sheet.getByRole('textbox', { name: l.name });
+      await name.fill('Марко П.');
+      await expect(name).toHaveValue('Марко П.');
       await pressTelegram(page, 'main_button_pressed');
       await expect(page.getByRole('dialog', { name: l.ready })).toBeVisible();
       expect(invites.items[0]).toMatchObject({ client_name: 'Марко П.', status: 'waiting' });

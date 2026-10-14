@@ -37,7 +37,12 @@ from app.platform.contracts.events.deals import (
     DealReminderDue,
     DisputeResolved,
 )
-from app.platform.contracts.events.identity import BotStarted, UserDeleted, UserRestricted
+from app.platform.contracts.events.identity import (
+    BotStarted,
+    TelegramWriteAllowed,
+    UserDeleted,
+    UserRestricted,
+)
 from app.platform.contracts.events.jobs import (
     JobClosed,
     JobExpired,
@@ -287,6 +292,12 @@ class RecipientData(Protocol):
 
 GRANT_WRITE_ACCESS: Final = TaskRef("notifications.grant_write_access", BotStarted)
 """Подписчик BotStarted: /start разрешает боту писать — канал telegram доступен."""
+
+GRANT_WRITE_ACCESS_FROM_INIT_DATA: Final = TaskRef(
+    "notifications.grant_write_access_from_init_data", TelegramWriteAllowed
+)
+"""Подписчик TelegramWriteAllowed: initData входа говорит, что боту уже можно писать, — канал
+telegram открывается и без /start и requestWriteAccess."""
 
 SEND_DELIVERY: Final = TaskRef("notifications.send", SendDeliveryPayload, queue="notifications")
 """Отправить доставку в канал (не раньше `not_before`)."""
