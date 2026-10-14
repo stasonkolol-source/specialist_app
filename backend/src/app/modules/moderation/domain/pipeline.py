@@ -13,6 +13,10 @@
 решают стоп-правила, детектор контактов и предоплаты, категория и выборка уровня 0, как
 будто AI ответил «чисто». Иначе модератор ждал бы каждую заявку, отклик и отзыв, а каждое
 сообщение чата открывало бы кейс. Фото без ключа по-прежнему идут к человеку (domain/images.py).
+
+Сообщение чата с просьбой о предоплате (детектор, без признака нарушения) — кейс об авторе, а не
+о сообщении (`about_author`): повторы за сутки дописываются в один открытый кейс «предоплата ×3»,
+а не плодят карточки; само сообщение остаётся видно, под ним — баннер (6.3a).
 """
 
 import hashlib
@@ -22,6 +26,7 @@ from enum import StrEnum
 from typing import Final
 from uuid import UUID
 
+from app.modules.moderation.domain.cases import EntityType
 from app.modules.moderation.domain.queues import Queue, stricter
 from app.modules.moderation.domain.rules import (
     MatchSource,
@@ -36,6 +41,15 @@ from app.platform.ai.port import (
     Unavailable,
     UnavailableReason,
 )
+
+PREPAYMENT_SIGNAL: Final = (
+    f"{MatchSource.DETECTOR.value}:{RuleCategory.SCAM.value}:{RuleAction.FLAG.value}:prepayment"
+)
+"""Сигнал детектора предоплаты (rules.py::RuleSet.check) в `Routing.signals` и поводах кейса."""
+CONTACTS_SIGNAL: Final = (
+    f"{MatchSource.DETECTOR.value}:{RuleCategory.CONTACTS.value}:{RuleAction.FLAG.value}:"
+)
+"""Начало сигнала детектора контактов: дальше — виды через запятую («phone, username»)."""
 
 NOT_A_SIGNAL: Final = frozenset({UnavailableReason.NO_KEY})
 """Почему AI не проверял текст, но к человеку его не отправляем: ключа нет по решению
@@ -178,6 +192,18 @@ def sampled(entity_id: UUID, rate: float) -> bool:
     """Попал ли объект в выборку: одинаково при повторе задачи и в любом процессе."""
     digest = hashlib.sha256(entity_id.bytes).digest()
     return int.from_bytes(digest[:4]) / 2**32 < rate
+
+
+def about_author(entity_type: EntityType, routing: Routing) -> bool:
+    """Кейс — об авторе, а не об объекте: сообщение чата с просьбой о предоплате, которое не
+    скрывают (нет признака нарушения). Повтор за сутки дописывается в тот же открытый кейс.
+    Скрытое сообщение (стоп-слово, P0) остаётся кейсом о сообщении: одобрение возвращает его."""
+    return (
+        entity_type is EntityType.MESSAGE
+        and routing.route is Route.REVIEW
+        and not routing.flagged
+        and PREPAYMENT_SIGNAL in routing.signals
+    )
 
 
 def _label_queue(label: PolicyLabel) -> Queue:

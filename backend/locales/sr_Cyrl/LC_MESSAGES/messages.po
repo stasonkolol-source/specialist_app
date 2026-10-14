@@ -153,7 +153,7 @@ msgid "bot.deals.proposal_closed"
 msgstr "Предлог више није актуелан: потврђен је, одбијен или је рок истекао."
 
 msgid "bot.help.text"
-msgstr "<b>Како функционише</b>\n• Опишите задатак — мајстори у близини ће се јавити са ценом. Или изаберите стручњака по утисцима.\n• Договарајте се у чету апликације „Соседи“: контакти — након договора.\n• Плаћање — директно извођачу, после посла. „Соседи“ не примају новац.\n\n<b>Безбедност</b>\n• Не плаћајте унапред непознатим људима и никоме не говорите кодове из СМС порука.\n• Сумњив профил или порука — пријавите директно у апликацији.\n\n/terms — правила платформе\n/privacy — политика приватности\n/language — језик"
+msgstr "<b>Како функционише</b>\n• Опишите задатак — мајстори у близини ће се јавити са ценом. Или изаберите стручњака по утисцима.\n• Договарајте се у чету апликације „Соседи“: контакти — након договора.\n• Плаћање — после посла, лично. „Соседи“ не примају новац — нема коме да се плати унапред.\n\n<b>Безбедност</b>\n• Аванс се не тражи и не даје. Материјал — по рачуну при сусрету. Кодове из СМС порука никоме не говорите.\n• Траже аванс или је профил сумњив — пријавите директно у апликацији.\n\n/terms — правила платформе\n/privacy — политика приватности\n/language — језик"
 
 msgid "bot.help.support"
 msgstr "Питање или проблем? Пишите подршци — одговорићемо."
@@ -832,7 +832,7 @@ msgid "notifications.moderation_decision.button"
 msgstr "Исправи"
 
 msgid "notifications.moderation_reason.prepayment_scam"
-msgstr "тражење плаћања унапред — чест трик преваранта"
+msgstr "на „Соседима“ се плаћа после посла. Тражење плаћања унапред је прекршај; поновљено — забрана одговора на огласе"
 
 msgid "notifications.moderation_reason.off_platform_payment"
 msgstr "предлог плаћања или преписке мимо апликације „Соседи“"
@@ -931,7 +931,7 @@ msgid "notifications.response_accepted.title"
 msgstr "Изабрани сте"
 
 msgid "notifications.response_accepted.body"
-msgstr "Захтев „{title}“. Адреса и време — у договору."
+msgstr "Захтев „{title}“. Адреса и време — у договору. Плаћање — после посла, лично."
 
 msgid "notifications.response_not_selected.title"
 msgstr "Изабран је други извођач"
@@ -1569,6 +1569,36 @@ msgstr "контакти ({kinds}) у {field}"
 
 msgid "bot.moderation.why.prepayment"
 msgstr "тражи авансно плаћање"
+
+msgid "bot.moderation.event.prepayment"
+msgstr "тражи авансно плаћање у чету"
+
+msgid "bot.moderation.card.risk"
+msgstr "⚠️ сигнали ризика: {signals}"
+
+msgid "bot.moderation.card.repeat"
+msgstr "🔁 понављање: {count} за {days} дана · предложена тежина: {severity}"
+
+msgid "bot.moderation.risk.reregistered_after_deletion"
+msgstr "поновна регистрација после брисања"
+
+msgid "bot.moderation.risk.with_sanctions"
+msgstr "{label} (са санкцијама)"
+
+msgid "bot.moderation.risk.prepayment_request"
+msgstr "аванс"
+
+msgid "bot.moderation.risk.contact_leak"
+msgstr "контакти у чету"
+
+msgid "bot.moderation.risk.rate_limit_exceeded"
+msgstr "лимити 429"
+
+msgid "bot.moderation.risk.report_confirmed"
+msgstr "потврђена пријава"
+
+msgid "bot.moderation.risk.times"
+msgstr "{label} ×{count}"
 
 msgid "bot.moderation.why.omni"
 msgstr "ознака OpenAI omni: {category}"

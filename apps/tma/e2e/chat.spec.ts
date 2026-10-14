@@ -29,8 +29,7 @@ const LOCALES = [
     tab: 'Сообщения',
     title: 'Сообщения',
     hint: 'Телефоны и ссылки видны только после договорённости',
-    safety:
-      'Не вносите предоплату незнакомым исполнителям. Платите после того, как работа сделана.',
+    safety: 'Оплата — после работы, лично.',
     masked: 'Контакты откроются после договорённости — так безопаснее',
     hidden: 'контакт скрыт',
     day: '2 октября',
@@ -51,7 +50,7 @@ const LOCALES = [
     tab: 'Poruke',
     title: 'Poruke',
     hint: 'Telefoni i linkovi se vide tek posle dogovora',
-    safety: 'Ne plaćajte unapred nepoznatim izvođačima. Platite tek kad posao bude završen.',
+    safety: 'Plaćanje — posle posla, lično.',
     masked: 'Kontakti će se otvoriti posle dogovora — tako je bezbednije',
     hidden: 'kontakt sakriven',
     day: '2. oktobar',

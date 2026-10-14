@@ -37,6 +37,7 @@ import {
   Stars,
   Steps,
   Switch,
+  SystemNote,
   Textarea,
   Tile,
   Tiles,
@@ -259,6 +260,10 @@ export function MoreSections() {
           <Banner tone="ok">{t('status.deal.agreed')}</Banner>
           <Banner tone="info">{t('status.job.pending_moderation')}</Banner>
           <Banner tone="danger">{t('form.required')}</Banner>
+          {/* системная строка чата с действием в один тап (S30: «Просят предоплату? … · Пожаловаться») */}
+          <SystemNote icon="alert" action={{ label: t('action.report'), onClick: () => undefined }}>
+            {t('safety.prepayment')}
+          </SystemNote>
           <EmptyState
             icon="jobs"
             title={t('empty.jobsTitle')}

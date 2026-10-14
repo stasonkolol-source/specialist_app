@@ -18,7 +18,11 @@ const FALLBACK_PATH = '/profile';
 const LEGAL_PATH = '/legal/$document';
 const RULES_HREF = '/legal/terms';
 
-const SAFETY = ['prepay', 'links'] as const;
+/** «Безопасные сделки»: правило площадки — с «кошельком», предостережение — с «запретом». */
+const SAFETY = [
+  { key: 'prepay', icon: 'wallet', tone: 'text-accent' },
+  { key: 'links', icon: 'ban', tone: 'text-danger' },
+] as const;
 const FAQ = ['responses', 'contacts', 'review', 'price'] as const;
 type Question = (typeof FAQ)[number];
 
@@ -139,9 +143,9 @@ function Safety() {
         </Heading>
       </span>
       <ul className="m-0 flex list-none flex-col gap-2 p-0">
-        {SAFETY.map((key) => (
+        {SAFETY.map(({ key, icon, tone }) => (
           <li key={key} className="flex items-center gap-2.5 text-sm">
-            <Icon name="ban" className="shrink-0 text-danger" />
+            <Icon name={icon} className={`shrink-0 ${tone}`} />
             {t(`help.safety.${key}`)}
           </li>
         ))}

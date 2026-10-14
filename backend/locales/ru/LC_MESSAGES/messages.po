@@ -153,7 +153,7 @@ msgid "bot.deals.proposal_closed"
 msgstr "Предложение уже неактуально: его подтвердили, отклонили или срок истёк."
 
 msgid "bot.help.text"
-msgstr "<b>Как это работает</b>\n• Опишите задачу — мастера рядом откликнутся с ценой. Или выберите специалиста по отзывам.\n• Договаривайтесь в чате «Соседей»: контакты — после договорённости.\n• Оплата — напрямую исполнителю, после работы. «Соседи» деньги не принимают.\n\n<b>Безопасность</b>\n• Не вносите предоплату незнакомым и никому не сообщайте коды из СМС.\n• Подозрительный профиль или сообщение — пожалуйтесь прямо в приложении.\n\n/terms — правила площадки\n/privacy — политика конфиденциальности\n/language — язык"
+msgstr "<b>Как это работает</b>\n• Опишите задачу — мастера рядом откликнутся с ценой. Или выберите специалиста по отзывам.\n• Договаривайтесь в чате «Соседей»: контакты — после договорённости.\n• Оплата — после работы, лично. «Соседи» денег не принимают — платить вперёд некому.\n\n<b>Безопасность</b>\n• Предоплату не просят и не вносят. Материалы — по чеку при встрече. Коды из СМС никому не сообщайте.\n• Просят предоплату или профиль подозрительный — пожалуйтесь прямо в приложении.\n\n/terms — правила площадки\n/privacy — политика конфиденциальности\n/language — язык"
 
 msgid "bot.help.support"
 msgstr "Вопрос или проблема? Напишите в поддержку — ответим."
@@ -832,7 +832,7 @@ msgid "notifications.moderation_decision.button"
 msgstr "Исправить"
 
 msgid "notifications.moderation_reason.prepayment_scam"
-msgstr "просьба о предоплате — частая уловка мошенников"
+msgstr "на «Соседях» платят после работы. Просьба о предоплате — нарушение; повторная — запрет откликов"
 
 msgid "notifications.moderation_reason.off_platform_payment"
 msgstr "предложение оплаты или переписки в обход «Соседей»"
@@ -931,7 +931,7 @@ msgid "notifications.response_accepted.title"
 msgstr "Вас выбрали"
 
 msgid "notifications.response_accepted.body"
-msgstr "Заявка «{title}». Адрес и время — в сделке."
+msgstr "Заявка «{title}». Адрес и время — в сделке. Оплата — после работы, лично."
 
 msgid "notifications.response_not_selected.title"
 msgstr "Выбрали другого исполнителя"
@@ -1569,6 +1569,36 @@ msgstr "контакты ({kinds}) в {field}"
 
 msgid "bot.moderation.why.prepayment"
 msgstr "просьба о предоплате"
+
+msgid "bot.moderation.event.prepayment"
+msgstr "просьба о предоплате в чате"
+
+msgid "bot.moderation.card.risk"
+msgstr "⚠️ сигналы риска: {signals}"
+
+msgid "bot.moderation.card.repeat"
+msgstr "🔁 повтор: {count} за {days} дн. · предлагаемая тяжесть: {severity}"
+
+msgid "bot.moderation.risk.reregistered_after_deletion"
+msgstr "пере-регистрация после удаления"
+
+msgid "bot.moderation.risk.with_sanctions"
+msgstr "{label} (с санкциями)"
+
+msgid "bot.moderation.risk.prepayment_request"
+msgstr "предоплата"
+
+msgid "bot.moderation.risk.contact_leak"
+msgstr "контакты в чате"
+
+msgid "bot.moderation.risk.rate_limit_exceeded"
+msgstr "лимиты 429"
+
+msgid "bot.moderation.risk.report_confirmed"
+msgstr "подтверждённая жалоба"
+
+msgid "bot.moderation.risk.times"
+msgstr "{label} ×{count}"
 
 msgid "bot.moderation.why.omni"
 msgstr "флаг OpenAI omni: {category}"
