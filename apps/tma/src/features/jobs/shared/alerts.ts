@@ -2,8 +2,16 @@
 // показать строкой и как перевести форму в тело запроса. Названия у подписки нет — она называется
 // по первой своей категории, как в карточке бота B1: «Мастер на час», «… и ещё 2»; подпись под
 // названием — подкатегории раздела или раздел услуги. Форма S19 открывается и из шторки S14
-// («Сохранить как подписку»): фильтры ленты переходят в неё как есть.
-import type { CategoryOut, JobAlertCriteriaIn, JobAlertOut, Urgency } from '@sosed/api-client';
+// («Сохранить как подписку»): фильтры ленты переходят в неё как есть. Без фильтров ленты новая
+// подписка берёт категории и районы выезда из профиля исполнителя — второй раз их не вводить.
+import type {
+  CategoryOut,
+  DistrictOut,
+  JobAlertCriteriaIn,
+  JobAlertOut,
+  ProfileOut,
+  Urgency,
+} from '@sosed/api-client';
 import { paraToRsd, rsdToPara } from '@sosed/domain';
 import type { IconName } from '@sosed/ui-web';
 import { ICON_NAMES } from '@sosed/ui-web';
@@ -115,6 +123,36 @@ export function formFromFeed(search: FeedSearch): AlertForm {
     delivery: 'instant',
     urgencies: urgencies(search) ?? [],
     langs: [...(search.langs ?? [])],
+  };
+}
+
+/** В адресе формы есть фильтры ленты: категории, точка с радиусом, срок, бюджет или язык. */
+export function hasFeedFilters(search: FeedSearch): boolean {
+  return (
+    (search.categories?.length ?? 0) > 0 ||
+    search.near !== undefined ||
+    search.when !== undefined ||
+    search.urgent !== undefined ||
+    search.budget !== undefined ||
+    (search.langs?.length ?? 0) > 0
+  );
+}
+
+/** Форма новой подписки из профиля исполнителя (S19 без фильтров ленты): его категории и районы
+ *  выезда; отмечены все кварталы города — «Весь город», как в S32c. */
+export function formFromProfile(
+  profile: Pick<ProfileOut, 'category_ids' | 'district_ids'>,
+  districts: readonly Pick<DistrictOut, 'id'>[],
+): AlertForm {
+  const wholeCity =
+    districts.length > 0 &&
+    districts.every((district) => profile.district_ids.includes(district.id));
+  const named = !wholeCity && profile.district_ids.length > 0;
+  return {
+    ...formFromFeed({}),
+    categories: [...profile.category_ids],
+    area: named ? 'districts' : 'city',
+    districts: named ? [...profile.district_ids] : [],
   };
 }
 

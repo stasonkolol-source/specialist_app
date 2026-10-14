@@ -11,8 +11,13 @@
 - `jobs.complete_job` — DealCompleted сделки из отклика: заявка завершена (6.1a).
 - `jobs.expire_jobs` — каждые 5 минут: опубликованные со сроком в прошлом — «истекла».
 - `jobs.expiry_reminders` — каждые 15 минут: «Заявка закроется через 2 ч».
-- `jobs.match_alerts` — JobPublished первой публикации публичной заявки: подписчикам — карточка
-  B1 (`notifications.notify_job_matched` по имени задачи) или место в подборке (5.7, §9.6).
+- `jobs.match_alerts` — JobPublished публичной заявки, первой и повторной (продление, правка,
+  отмена сделки): подписчикам, кто её ещё не получал, — карточка B1
+  (`notifications.notify_job_matched` по имени задачи) или место в подборке (5.7, §9.6).
+- `jobs.catch_up_alert` — AlertCreated: новой подписке досылаются открытые заявки последних трёх
+  суток — карточками в лимит частоты, остальное подборкой (5.7).
+- `jobs.create_profile_alert` — ProfilePublished одобренного профиля: подписка по категориям и
+  районам профиля, если своих у исполнителя ещё нет (5.7).
 - `jobs.alert_digests` — ежечасно: подборки «раз в день» тем, чей час дайджеста пришёл (5.7).
 - `jobs.forget_alerts` — UserDeleted: подписки и совпадения удалённого аккаунта (§7.10).
 """
@@ -21,7 +26,9 @@ from dishka import FromDishka
 
 from app.modules.jobs.application.ports import (
     ANNOUNCE_DIRECT_REQUEST,
+    CATCH_UP_ALERT,
     COMPLETE_JOB,
+    CREATE_PROFILE_ALERT,
     FORGET_ALERTS,
     FORGET_CLIENT_JOBS,
     MATCH_ALERTS,
@@ -33,7 +40,15 @@ from app.modules.jobs.application.use_cases.announce_direct_request import (
     AnnounceDirectRequest,
     AnnounceDirectRequestCommand,
 )
+from app.modules.jobs.application.use_cases.catch_up_alert import (
+    CatchUpAlert,
+    CatchUpAlertCommand,
+)
 from app.modules.jobs.application.use_cases.complete_job import CompleteJob, CompleteJobCommand
+from app.modules.jobs.application.use_cases.create_profile_alert import (
+    CreateProfileAlert,
+    CreateProfileAlertCommand,
+)
 from app.modules.jobs.application.use_cases.expire_jobs import ExpireJobs, ExpireJobsCommand
 from app.modules.jobs.application.use_cases.forget_alerts import (
     ForgetAlerts,
@@ -64,11 +79,13 @@ from app.modules.jobs.application.use_cases.withdraw_performer_responses import 
     WithdrawPerformerResponses,
     WithdrawPerformerResponsesCommand,
 )
+from app.modules.jobs.domain.alert import AlertId
 from app.modules.jobs.domain.job import JobId
 from app.modules.jobs.domain.response import ResponseId
 from app.platform.contracts.events.deals import DealCancelled, DealCompleted
 from app.platform.contracts.events.identity import UserBlocked, UserDeleted
-from app.platform.contracts.events.jobs import JobPublished
+from app.platform.contracts.events.jobs import AlertCreated, JobPublished
+from app.platform.contracts.events.specialists import ProfilePublished
 from app.platform.queue.tasks import PeriodicRun, periodic, subscriber
 
 
@@ -103,9 +120,24 @@ async def announce_direct_request(
 
 @subscriber(JobPublished, MATCH_ALERTS)
 async def match_alerts(event: JobPublished, match: FromDishka[MatchAlerts]) -> None:
-    if event.direct or event.republished:  # прямой запрос — приглашённым; повтор — не новость
+    if event.direct:  # прямой запрос — приглашённым
         return
+    # повторная публикация — тоже: кто карточку уже получал, второй не получит (совпадения)
     await match(MatchAlertsCommand(job_id=JobId(event.job_id)))
+
+
+@subscriber(AlertCreated, CATCH_UP_ALERT)
+async def catch_up_alert(event: AlertCreated, catch_up: FromDishka[CatchUpAlert]) -> None:
+    await catch_up(CatchUpAlertCommand(alert_id=AlertId(event.alert_id)))
+
+
+@subscriber(ProfilePublished, CREATE_PROFILE_ALERT)
+async def create_profile_alert(
+    event: ProfilePublished, create: FromDishka[CreateProfileAlert]
+) -> None:
+    if not event.approved:  # владелец вернул скрытый профиль — это не первая публикация
+        return
+    await create(CreateProfileAlertCommand(user_id=event.user_id, profile_id=event.profile_id))
 
 
 @subscriber(UserDeleted, FORGET_ALERTS)

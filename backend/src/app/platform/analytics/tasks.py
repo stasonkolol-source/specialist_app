@@ -473,6 +473,7 @@ async def capture_alert_created(event: AlertCreated, analytics: FromDishka[Analy
             categories=event.categories,
             has_budget=event.has_budget,
             urgent_only=event.urgent_only,
+            auto=event.auto,
         )
     )
 

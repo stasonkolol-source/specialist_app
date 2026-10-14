@@ -1,17 +1,19 @@
 // Подписки на заявки S18 и S19 (DEVELOPMENT_PLAN 5.7) на фейке backend: список как на артборде —
 // название по категории, где и бюджет, «сразу» или «подборкой», «N заявок за неделю», тихие часы;
 // переключатель и удаление; запрос «Присылать новые заявки в бот?» → requestWriteAccess; новая
-// подписка с одним POST на тело формы, правка — PATCH; «Сохранить как подписку» из шторки S14 —
-// форма с фильтрами ленты; «По моим подпискам» на S13 — лента `feed=alerts`.
+// подписка с одним POST на тело формы, правка — PATCH; без фильтров ленты новая — из профиля
+// исполнителя; «Сохранить как подписку» из шторки S14 — форма с фильтрами ленты; «По моим
+// подпискам» на S13 — лента `feed=alerts`.
 import { setSession } from '@sosed/api-client';
 import type { MockTelegram } from '@sosed/platform';
 import { act, fireEvent, screen, waitFor, within } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { mainButton, pressMainButton, startApp, userBackend } from '../../testing/app.tsx';
-import { CATEGORY_IDS, E2E_NOW, ME } from '../../testing/fixtures.ts';
+import { CATEGORY_IDS, DISTRICT_IDS, E2E_NOW, ME, PROFILE_FILLED } from '../../testing/fixtures.ts';
 import { JobsBackend, alertsFixture } from '../../testing/jobsBackend.ts';
-import { jobsHandlers, server } from '../../testing/msw.ts';
+import { jobsHandlers, profileHandlers, server } from '../../testing/msw.ts';
+import { ProfileBackend } from '../../testing/profileBackend.ts';
 
 const HANDYMAN = CATEGORY_IDS['handyman'] ?? 0;
 const CLEANING = CATEGORY_IDS['cleaning'] ?? 0;
@@ -197,6 +199,64 @@ describe('S19 alert form', () => {
       },
       delivery: 'digest',
     });
+  });
+
+  it('prefills a new alert from the profile when the feed filters are empty', async () => {
+    const jobs = withJobs();
+    const published = { ...PROFILE_FILLED, status: 'published' as const };
+    server.use(...profileHandlers(() => new ProfileBackend(published)));
+    const { telegram } = startApp('/jobs/alerts/new');
+
+    expect(await screen.findByRole('heading', { name: 'Новая подписка', level: 1 })).toBeTruthy();
+    // категории профиля — чипами, услуги не из разделов тоже; районы выезда — одним чипом
+    expect(await screen.findByRole('button', { name: 'Электрика', pressed: true })).toBeTruthy();
+    expect(screen.getByRole('button', { name: 'Люстры и карнизы', pressed: true })).toBeTruthy();
+    expect(screen.getByRole('button', { name: 'Мастер на час', pressed: false })).toBeTruthy();
+    expect(
+      await screen.findByRole('button', {
+        name: 'Грбавица, Лиман, Нова Детелинара, Центр',
+        pressed: true,
+      }),
+    ).toBeTruthy();
+    expect(screen.getByRole('button', { name: 'Весь город', pressed: false })).toBeTruthy();
+    await waitFor(() => expect(mainButton(telegram)?.text).toBe('Сохранить подписку'));
+    await pressMainButton(telegram);
+
+    await waitFor(() => expect(jobs.alertWrites).toHaveLength(1));
+    expect(jobs.alertWrites[0]?.body).toEqual({
+      criteria: {
+        category_ids: published.category_ids,
+        city_id: published.city_id,
+        district_ids: [
+          DISTRICT_IDS['Лиман'],
+          DISTRICT_IDS['Грбавица'],
+          DISTRICT_IDS['Центр'],
+          DISTRICT_IDS['Нова Детелинара'],
+        ],
+        center: null,
+        radius_km: null,
+        min_budget: null,
+        urgencies: [],
+        languages: [],
+      },
+      delivery: 'instant',
+    });
+  });
+
+  it('keeps the feed filters over the profile and starts empty without a profile', async () => {
+    withJobs();
+    server.use(
+      ...profileHandlers(
+        () => new ProfileBackend({ ...PROFILE_FILLED, status: 'published' as const }),
+      ),
+    );
+    startApp(`/jobs/alerts/new?categories=%5B${HANDYMAN}%5D&from=feed`);
+
+    expect(
+      await screen.findByRole('button', { name: 'Мастер на час', pressed: true }),
+    ).toBeTruthy();
+    expect(screen.queryByRole('button', { name: 'Электрика' })).toBeNull();
+    expect(screen.getByRole('button', { name: 'Весь город', pressed: true })).toBeTruthy();
   });
 
   it('edits an alert with PATCH of the whole criteria', async () => {
