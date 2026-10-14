@@ -98,6 +98,11 @@ def clean_period_passed(signals: TrustSignals) -> TrustLevel:
     return TrustLevel.BASIC if _clean_for(signals) >= CLEAN_PERIOD else TrustLevel.NEW
 
 
+def phone_verified(signals: TrustSignals) -> TrustLevel:
+    """Телефон подтверждён (requestContact, добровольно) → базовый (ADR-0016 §2, ADR-0018)."""
+    return TrustLevel.BASIC if signals.phone_verified else TrustLevel.NEW
+
+
 def deals_completed(signals: TrustSignals) -> TrustLevel:
     """≥ 3 завершённые сделки → проверенный (ADR-0016 §2). «Без подтверждённых жалоб» держат
     потолки: санкция и нарушение за 14 дней опускают уровень до 0."""
@@ -115,9 +120,10 @@ def no_recent_violation(signals: TrustSignals) -> TrustLevel:
     return TrustLevel.NEW if recent else TrustLevel.TRUSTED
 
 
-PROMOTIONS: Final[Sequence[TrustRule]] = (clean_period_passed, deals_completed)
-"""Правила повышения (§13.2): 14 дней без жалоб → 1 (2.5a), 3 завершённые сделки → 2 (6.1a);
-телефон → 1 — с подтверждением телефона (v1)."""
+PROMOTIONS: Final[Sequence[TrustRule]] = (clean_period_passed, phone_verified, deals_completed)
+"""Правила повышения (§13.2): 14 дней без жалоб → 1 (2.5a), подтверждённый телефон → 1
+(POST /me/phone), 3 завершённые сделки → 2 (6.1a). Потолки сильнее: телефон не поднимает уровень
+при действующей санкции и в 14 дней после нарушения."""
 
 CAPS: Final[Sequence[TrustRule]] = (no_active_sanctions, no_recent_violation)
 """Потолки: действующая санкция и нарушение за 14 дней опускают уровень до 0 (2.5a)."""

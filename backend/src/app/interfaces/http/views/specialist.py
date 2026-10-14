@@ -9,7 +9,8 @@
 сделкам с ответом специалиста, автор — «Имя Ф.» (7.2); вкладка «До платформы» S11 — отзывы по
 приглашениям с «что делал мастер», в рейтинг они не входят (7.6а). «Обычно отвечает за …» —
 медиана первого ответа в диалогах за 30 дней из read-model поиска (6.3b; при пяти и больше
-диалогах с ответом). Бейджи — v1: пока пусто.
+диалогах с ответом). Бейджи — факты, не оценки (ADR-0016): пока только «Телефон подтверждён»
+(`phone_verified`, POST /me/phone); номер карточка не отдаёт.
 """
 
 from collections.abc import Collection, Mapping
@@ -49,6 +50,7 @@ TOP_SERVICES = 3
 PREVIEW_WORKS = 3
 """«Цены» и «Работы» на S08 — по одному ряду, как на артборде; остальное — S09 и S10."""
 READY = "ready"
+PHONE_VERIFIED = "phone_verified"
 STARS = 5
 LATEST_REVIEWS = 1
 """Последний отзыв на S08; остальные — S11."""
@@ -141,7 +143,7 @@ class SpecialistProfileOut(BaseModel):
     rating: float | None = Field(description="Когда отзывов достаточно (7.2); иначе is_new")
     rating_count: int
     is_new: bool
-    badges: list[str]
+    badges: list[str] = Field(description="Факты-бейджи: `phone_verified` — телефон подтверждён")
     response_time_minutes: int | None = Field(
         description="«Обычно отвечает за …»: медиана первого ответа в диалогах за 30 дней, в"
         " минутах; меньше пяти диалогов с ответом — null"
@@ -325,6 +327,7 @@ async def get_specialist(
     # все кварталы города — «Весь Нови-Сад»: первый по алфавиту основным районом не показываем
     whole_city = await geo.covers_city(profile.city_id, profile.area_ids)
     until = profile.available_until
+    owner = await identity.get_user(profile.user_id)
     body = SpecialistProfileOut(
         id=profile.id,
         user_id=profile.user_id,
@@ -346,7 +349,7 @@ async def get_specialist(
         rating=rating.rating,
         rating_count=rating.count,
         is_new=rating.is_new,
-        badges=[],
+        badges=[PHONE_VERIFIED] if owner is not None and owner.phone_verified else [],
         response_time_minutes=await search.response_time(profile.id),
         services=[_service(service) for service in services[:TOP_SERVICES]],
         services_count=len(services),

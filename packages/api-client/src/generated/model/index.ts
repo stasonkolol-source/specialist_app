@@ -205,6 +205,7 @@ export * from './notificationsReadIn.ts';
 export * from './notificationType.ts';
 export * from './participantRole.ts';
 export * from './partsIn.ts';
+export * from './phoneIn.ts';
 export * from './pointOut.ts';
 export * from './portfolioLimitsOut.ts';
 export * from './portfolioOrderIn.ts';

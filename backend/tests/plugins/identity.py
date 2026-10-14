@@ -47,6 +47,23 @@ def signed_init_data(
     )
 
 
+def new_phone() -> str:
+    """Свой номер на тест: «один номер — один аккаунт» — индекс на всю базу тестов."""
+    return f"+38160{new_id().int % 10_000_000:07d}"
+
+
+def signed_contact(settings: Settings, telegram_id: int, phone: str) -> str:
+    """Ответ `requestContact` Mini App (кнопка «Подтвердить телефон»), подписанный ботом теста."""
+    shared = {"user_id": telegram_id, "phone_number": phone.removeprefix("+"), "first_name": "Ana"}
+    fields = {
+        "contact": json.dumps(shared, separators=(",", ":")),
+        "auth_date": str(int(SystemClock().now().timestamp())),
+    }
+    return urlencode(
+        fields | {"hash": sign(fields, settings.telegram.bot_token.get_secret_value())}
+    )
+
+
 async def login(api: httpx.AsyncClient, init_data: str) -> dict[str, object]:
     response = await api.post(
         "/api/v1/auth/telegram", headers={"authorization": f"tma {init_data}"}

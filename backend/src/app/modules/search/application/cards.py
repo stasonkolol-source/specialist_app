@@ -1,6 +1,6 @@
 """Карточка специалиста из строки read-model: выдача S05 и избранное S12 (DEVELOPMENT_PLAN 4.2,
 4.6). Фото профиля — вариант thumb из media; «Новый специалист» — пока отзывов меньше трёх;
-«доступен сегодня до …» — только если ещё доступен.
+«доступен сегодня до …» — только если ещё доступен; «Телефон подтверждён» — из карточки.
 """
 
 from collections.abc import Mapping, Sequence
@@ -13,6 +13,7 @@ from app.modules.search.application.dto import Avatar, SpecialistCard, Specialis
 from app.modules.search.domain.query import NEW_UNTIL_REVIEWS, rounded_distance
 from app.platform.kernel.ids import MediaId
 
+PHONE_VERIFIED: Final = "phone_verified"
 AVATAR_VARIANT: Final = "thumb"
 """320 px — карточка выдачи."""
 READY = "ready"
@@ -71,8 +72,16 @@ def _card(hit: SpecialistHit, refs: Mapping[MediaId, MediaRef], now: datetime) -
         rating_count=hit.rating_count,
         is_new=is_new,
         available_until=available if available is not None and available > now else None,
-        badges=hit.badges,
+        badges=_badges(card, hit),
     )
+
+
+def _badges(card: Mapping[str, Any], hit: SpecialistHit) -> tuple[str, ...]:
+    """Бейджи строки и «Телефон подтверждён» из карточки: он лежит не в колонке `badges`, чтобы
+    не влиять на порядок выдачи (search/application/projection.py)."""
+    if card.get(PHONE_VERIFIED) and PHONE_VERIFIED not in hit.badges:
+        return (*hit.badges, PHONE_VERIFIED)
+    return hit.badges
 
 
 def _shown_rating(card: Mapping[str, Any], hit: SpecialistHit) -> float | None:

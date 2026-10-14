@@ -8,6 +8,7 @@ from app.modules.identity.application.config import IdentityConfig
 from app.modules.identity.application.use_cases.authenticate_telegram import AuthenticateTelegram
 from app.modules.identity.application.use_cases.logout import Logout
 from app.modules.identity.application.use_cases.refresh_session import RefreshSession
+from app.modules.identity.application.use_cases.verify_phone import VerifyPhone
 from app.modules.identity.di import bot_id_of
 from app.platform.kernel.principal import Platform
 from app.platform.settings import Settings
@@ -23,7 +24,13 @@ async def test_use_cases_and_facade_resolve(settings: Settings) -> None:
         assert config.refresh_ttl(Platform.TMA).days == settings.jwt.refresh_ttl_days_tma
         assert config.refresh_ttl(Platform.IOS).days == settings.jwt.refresh_ttl_days
         async with container() as request:
-            for dependency in (AuthenticateTelegram, RefreshSession, Logout, IdentityApi):
+            for dependency in (
+                AuthenticateTelegram,
+                RefreshSession,
+                Logout,
+                VerifyPhone,
+                IdentityApi,
+            ):
                 assert await request.get(dependency) is not None
     finally:
         await container.close()

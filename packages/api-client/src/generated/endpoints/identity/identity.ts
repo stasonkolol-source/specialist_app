@@ -28,6 +28,7 @@ import type {
   IdentityUpdateMeHeaders,
   MeOut,
   MeUpdateIn,
+  PhoneIn,
   PrivacyIn,
   ProblemOut,
   RefreshIn,
@@ -658,6 +659,115 @@ export const useIdentityUpdatePrivacy = <TError = ErrorType<ProblemOut>, TContex
   TContext
 > => {
   return useMutation(getIdentityUpdatePrivacyMutationOptions(options), queryClient);
+};
+export const getIdentityVerifyPhoneUrl = () => {
+  return `/api/v1/me/phone`;
+};
+
+/**
+ * «Подтвердить телефон» (S33, S32c, S43): подписанный ответ `requestContact` → бейдж
+ * «Телефон подтверждён» и уровень доверия 1. Номер нигде не показывается и в ответе его нет.
+ * Повтор с тем же номером — 200 без изменений; номер в другом аккаунте — 409 `phone_taken`;
+ * подпись не та, устарела или контакт чужой — 422 `invalid_phone_contact`.
+ * @summary Verify Phone
+ */
+export const identityVerifyPhone = async (
+  phoneIn: PhoneIn,
+  options?: Parameters<typeof apiFetch>[1],
+): Promise<MeOut> => {
+  const getHeaders = (
+    h?: NonNullable<RequestInit['headers']>,
+  ): Record<string, string | readonly string[]> => {
+    if (!h) return {};
+    if (h instanceof Headers) return Object.fromEntries(h.entries());
+    if (Symbol.iterator in h) {
+      return Object.fromEntries(
+        Array.from(
+          h as Iterable<Iterable<string>>,
+          (entry) => Array.from(entry) as [string, string],
+        ),
+      );
+    }
+    const headers: Record<string, string | readonly string[]> = {};
+    for (const [name, value] of Object.entries<string | readonly string[] | undefined>(h)) {
+      if (value !== undefined) headers[name] = value;
+    }
+    return headers;
+  };
+  return apiFetch<MeOut>(getIdentityVerifyPhoneUrl(), {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...getHeaders(options?.headers) },
+    body: JSON.stringify(phoneIn),
+  });
+};
+
+export const getIdentityVerifyPhoneMutationKey = () => ['identityVerifyPhone'] as const;
+
+export const getIdentityVerifyPhoneMutationOptions = <
+  TError = ErrorType<ProblemOut>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof identityVerifyPhone>>,
+    TError,
+    IdentityVerifyPhoneMutationVariables,
+    TContext
+  >;
+  request?: SecondParameter<typeof apiFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof identityVerifyPhone>>,
+  TError,
+  IdentityVerifyPhoneMutationVariables,
+  TContext
+> => {
+  const mutationKey = getIdentityVerifyPhoneMutationKey();
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof identityVerifyPhone>>,
+    IdentityVerifyPhoneMutationVariables
+  > = (props) => {
+    const { data } = props ?? {};
+
+    return identityVerifyPhone(data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type IdentityVerifyPhoneMutationResult = NonNullable<
+  Awaited<ReturnType<typeof identityVerifyPhone>>
+>;
+export type IdentityVerifyPhoneMutationBody = PhoneIn;
+export type IdentityVerifyPhoneMutationError = ErrorType<ProblemOut>;
+export type IdentityVerifyPhoneMutationVariables = { data: PhoneIn };
+
+/**
+ * @summary Verify Phone
+ */
+export const useIdentityVerifyPhone = <TError = ErrorType<ProblemOut>, TContext = unknown>(
+  options?: {
+    mutation?: UseMutationOptions<
+      Awaited<ReturnType<typeof identityVerifyPhone>>,
+      TError,
+      IdentityVerifyPhoneMutationVariables,
+      TContext
+    >;
+    request?: SecondParameter<typeof apiFetch>;
+  },
+  queryClient?: QueryClient,
+): UseMutationResult<
+  Awaited<ReturnType<typeof identityVerifyPhone>>,
+  TError,
+  IdentityVerifyPhoneMutationVariables,
+  TContext
+> => {
+  return useMutation(getIdentityVerifyPhoneMutationOptions(options), queryClient);
 };
 export const getIdentityAcceptConsentsUrl = () => {
   return `/api/v1/me/consents`;

@@ -276,6 +276,53 @@
         ]
       }
     },
+    "/api/v1/me/phone": {
+      "post": {
+        "tags": [
+          "identity"
+        ],
+        "summary": "Verify Phone",
+        "description": "«Подтвердить телефон» (S33, S32c, S43): подписанный ответ `requestContact` → бейдж\n«Телефон подтверждён» и уровень доверия 1. Номер нигде не показывается и в ответе его нет.\nПовтор с тем же номером — 200 без изменений; номер в другом аккаунте — 409 `phone_taken`;\nподпись не та, устарела или контакт чужой — 422 `invalid_phone_contact`.",
+        "operationId": "identity_verify_phone",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PhoneIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MeOut"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Ошибка в формате RFC 9457",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemOut"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ]
+      }
+    },
     "/api/v1/me/consents": {
       "post": {
         "tags": [
@@ -12726,7 +12773,8 @@
           },
           "phone_verified": {
             "type": "boolean",
-            "title": "Phone Verified"
+            "title": "Phone Verified",
+            "description": "Бейдж «Телефон подтверждён» (POST /me/phone); сам номер API не отдаёт"
           },
           "created_at": {
             "type": "string",
@@ -13935,6 +13983,23 @@
         },
         "type": "object",
         "title": "PartsIn"
+      },
+      "PhoneIn": {
+        "properties": {
+          "contact": {
+            "type": "string",
+            "maxLength": 8192,
+            "minLength": 1,
+            "title": "Contact",
+            "description": "Поле `response` из ответа `requestContact` (подписано Telegram)"
+          }
+        },
+        "type": "object",
+        "required": [
+          "contact"
+        ],
+        "title": "PhoneIn",
+        "description": "«Подтвердить телефон» (S33, S32c, S43): подписанный ответ `requestContact`."
       },
       "PointOut": {
         "properties": {
@@ -16929,7 +16994,8 @@
               "type": "string"
             },
             "type": "array",
-            "title": "Badges"
+            "title": "Badges",
+            "description": "Факты-бейджи: `phone_verified` — телефон подтверждён"
           },
           "response_time_minutes": {
             "anyOf": [

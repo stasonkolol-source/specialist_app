@@ -286,6 +286,19 @@ async def test_card_shows_what_the_client_needs() -> None:
     assert world.media.asked == [frozenset({photo})]
 
 
+async def test_phone_badge_comes_from_the_card_not_the_ranked_column() -> None:
+    """«Телефон подтверждён» лежит в карточке (проектор), а не в колонке `badges`, по которой
+    выдача считает доверие: бейдж виден, порядок от телефона не зависит."""
+    world = World()
+    verified = hit(1)
+    verified.card["phone_verified"] = True  # type: ignore[index]
+    world.search.by_stage[Stage.BROWSE] = [verified, hit(2), hit(3, badges=("phone_verified",))]
+
+    cards = (await world.run()).page.items
+
+    assert [card.badges for card in cards] == [("phone_verified",), (), ("phone_verified",)]
+
+
 async def test_signed_in_viewer_does_not_see_blocked_users() -> None:
     """4.7: с кем у вошедшего блокировка в любую сторону, тех нет в выдаче; гостю — всё."""
     world = World()

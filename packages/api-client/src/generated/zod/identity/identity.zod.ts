@@ -35,7 +35,9 @@ export const IdentityAuthenticateTelegramResponse = zod.object({
     display_name: zod.string(),
     ui_locale: zod.enum(['ru', 'sr-Latn', 'sr-Cyrl', 'en']),
     trust_level: zod.int(),
-    phone_verified: zod.boolean(),
+    phone_verified: zod
+      .boolean()
+      .describe('Бейдж «Телефон подтверждён» (POST /me/phone); сам номер API не отдаёт'),
     created_at: zod.iso.datetime({ offset: true }),
     home_city_id: zod.union([zod.int(), zod.null()]),
     intent: zod.union([
@@ -96,7 +98,9 @@ export const IdentityGetMeResponse = zod.object({
   display_name: zod.string(),
   ui_locale: zod.enum(['ru', 'sr-Latn', 'sr-Cyrl', 'en']),
   trust_level: zod.int(),
-  phone_verified: zod.boolean(),
+  phone_verified: zod
+    .boolean()
+    .describe('Бейдж «Телефон подтверждён» (POST /me/phone); сам номер API не отдаёт'),
   created_at: zod.iso.datetime({ offset: true }),
   home_city_id: zod.union([zod.int(), zod.null()]),
   intent: zod.union([
@@ -155,7 +159,9 @@ export const IdentityUpdateMeResponse = zod.object({
   display_name: zod.string(),
   ui_locale: zod.enum(['ru', 'sr-Latn', 'sr-Cyrl', 'en']),
   trust_level: zod.int(),
-  phone_verified: zod.boolean(),
+  phone_verified: zod
+    .boolean()
+    .describe('Бейдж «Телефон подтверждён» (POST /me/phone); сам номер API не отдаёт'),
   created_at: zod.iso.datetime({ offset: true }),
   home_city_id: zod.union([zod.int(), zod.null()]),
   intent: zod.union([
@@ -190,7 +196,57 @@ export const IdentityUpdatePrivacyResponse = zod.object({
   display_name: zod.string(),
   ui_locale: zod.enum(['ru', 'sr-Latn', 'sr-Cyrl', 'en']),
   trust_level: zod.int(),
-  phone_verified: zod.boolean(),
+  phone_verified: zod
+    .boolean()
+    .describe('Бейдж «Телефон подтверждён» (POST /me/phone); сам номер API не отдаёт'),
+  created_at: zod.iso.datetime({ offset: true }),
+  home_city_id: zod.union([zod.int(), zod.null()]),
+  intent: zod.union([
+    zod
+      .enum(['client', 'pro', 'casual'])
+      .describe('«Что вы хотите?» в онбординге S02b: стартовый экран и подсказки, не права.'),
+    zod.null(),
+  ]),
+  consents: zod.record(zod.string(), zod.string()),
+  consent_required: zod.boolean(),
+  can_post_jobs: zod.boolean(),
+  can_respond: zod.boolean(),
+  can_message: zod.boolean(),
+  deletion_scheduled_at: zod.union([zod.iso.datetime({ offset: true }), zod.null()]),
+  privacy: zod
+    .object({
+      show_telegram: zod.boolean().describe('Свой Telegram (@username) — в сделке и чате'),
+    })
+    .describe('«Показывать после договорённости» (S43).'),
+});
+
+/**
+ * «Подтвердить телефон» (S33, S32c, S43): подписанный ответ `requestContact` → бейдж
+ * «Телефон подтверждён» и уровень доверия 1. Номер нигде не показывается и в ответе его нет.
+ * Повтор с тем же номером — 200 без изменений; номер в другом аккаунте — 409 `phone_taken`;
+ * подпись не та, устарела или контакт чужой — 422 `invalid_phone_contact`.
+ * @summary Verify Phone
+ */
+export const identityVerifyPhoneBodyContactMax = 8192;
+
+export const IdentityVerifyPhoneBody = zod
+  .object({
+    contact: zod
+      .string()
+      .min(1)
+      .max(identityVerifyPhoneBodyContactMax)
+      .describe('Поле `response` из ответа `requestContact` (подписано Telegram)'),
+  })
+  .describe('«Подтвердить телефон» (S33, S32c, S43): подписанный ответ `requestContact`.');
+
+export const IdentityVerifyPhoneResponse = zod.object({
+  id: zod.uuid(),
+  display_name: zod.string(),
+  ui_locale: zod.enum(['ru', 'sr-Latn', 'sr-Cyrl', 'en']),
+  trust_level: zod.int(),
+  phone_verified: zod
+    .boolean()
+    .describe('Бейдж «Телефон подтверждён» (POST /me/phone); сам номер API не отдаёт'),
   created_at: zod.iso.datetime({ offset: true }),
   home_city_id: zod.union([zod.int(), zod.null()]),
   intent: zod.union([
@@ -236,7 +292,9 @@ export const IdentityAcceptConsentsResponse = zod.object({
   display_name: zod.string(),
   ui_locale: zod.enum(['ru', 'sr-Latn', 'sr-Cyrl', 'en']),
   trust_level: zod.int(),
-  phone_verified: zod.boolean(),
+  phone_verified: zod
+    .boolean()
+    .describe('Бейдж «Телефон подтверждён» (POST /me/phone); сам номер API не отдаёт'),
   created_at: zod.iso.datetime({ offset: true }),
   home_city_id: zod.union([zod.int(), zod.null()]),
   intent: zod.union([

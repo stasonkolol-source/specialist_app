@@ -26,6 +26,10 @@ from app.modules.identity.application.use_cases.request_deletion import (
     RequestDeletion,
     RequestDeletionCommand,
 )
+from app.modules.identity.application.use_cases.verify_phone import (
+    VerifyPhone,
+    VerifyPhoneCommand,
+)
 from app.modules.identity.domain.deletion import DeletionSource
 from app.modules.search.application.dto import SpecialistFilters
 from app.modules.search.application.ports import PendingProfiles
@@ -53,6 +57,7 @@ from app.modules.specialists.domain.profile import ProfileKind
 from app.platform.db.port import UnitOfWork
 from app.platform.kernel.ids import new_id
 from app.platform.settings import Settings
+from tests.plugins.identity import new_phone, new_telegram_id, signed_contact
 from tests.plugins.search import NAME, PRICE, Specialist
 
 pytestmark = pytest.mark.integration
@@ -108,6 +113,31 @@ async def test_published_profile_gets_a_ready_row(specialist: Specialist) -> Non
     for query in ("электрик", "električar", "elektricar", "електричар", "electrician", "розетка"):
         assert await specialist.matches(query), query
     assert not await specialist.matches("сантехник")
+
+
+async def test_verified_phone_shows_in_the_card_but_not_in_ranking(
+    specialist: Specialist, storage_settings: Settings
+) -> None:
+    """Бейдж «Телефон подтверждён» — в карточке выдачи; колонка `badges`, от которой зависят
+    доверие в ранжировании и фильтр `verified`, остаётся пустой (ZZP ст. 28: порядок выдачи не
+    зависит от телефона)."""
+    telegram_id = new_telegram_id()
+    await specialist.execute(
+        "INSERT INTO identity.auth_identities (id, user_id, provider, subject)"
+        " VALUES (uuidv7(), :user, 'telegram', :subject)",
+        user=specialist.user_id,
+        subject=str(telegram_id),
+    )
+    contact = signed_contact(storage_settings, telegram_id, new_phone())
+
+    await specialist.call(
+        VerifyPhone, VerifyPhoneCommand(actor_id=specialist.user_id, contact=contact)
+    )
+    await specialist.handle("search.on_phone_verified")
+
+    row = await specialist.row()
+    assert row is not None
+    assert (row["card"]["phone_verified"], row["badges"]) == (True, [])
 
 
 async def test_whole_city_card_has_no_district(specialist: Specialist) -> None:

@@ -11,6 +11,7 @@ from app.modules.identity.application.dto import (
     MeState,
     MeView,
     PersonalData,
+    SharedPhone,
     StaffUserCard,
 )
 from app.modules.identity.domain.consent import Consent, ConsentDocument
@@ -52,9 +53,25 @@ class UserRepository(Protocol):
         одних и тех же."""
         ...
 
+    async def phone_taken(self, phone_e164: str, *, by_other_than: UserId) -> bool:
+        """Номер уже подтверждён у другого неудалённого аккаунта (uq_users_phone_e164)."""
+        ...
+
     async def add(self, user: User) -> None: ...
 
-    async def save(self, user: User) -> None: ...
+    async def save(self, user: User) -> None:
+        """PhoneTakenError — номер успели подтвердить в другом аккаунте (гонка с phone_taken)."""
+        ...
+
+
+class PhoneContacts(Protocol):
+    """Подпись Telegram (ADR-0009): телефон берём только из подписанного ботом ответа
+    `requestContact`. InvalidPhoneContactError — подпись не сошлась (`signature`) или устарела
+    (`expired`)."""
+
+    def verify(self, contact: str) -> SharedPhone:
+        """Номер в E.164 и Telegram id его владельца: подпись не старше часа."""
+        ...
 
 
 type DueCursor = tuple[datetime, UserId]

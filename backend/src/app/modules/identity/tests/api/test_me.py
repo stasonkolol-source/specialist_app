@@ -1,7 +1,10 @@
-"""GET и PATCH /me (DEVELOPMENT_PLAN 0.15b)."""
+"""GET и PATCH /me (DEVELOPMENT_PLAN 0.15b), POST /me/phone — бейдж «Телефон подтверждён»."""
 
 import httpx
 import pytest
+from tests.plugins.identity import new_phone, new_telegram_id, signed_contact, signed_init_data
+
+from app.platform.settings import Settings
 
 from .conftest import InitData, bearer, login
 
@@ -66,3 +69,42 @@ async def test_invisible_name_is_rejected_by_domain(
     )
     assert response.status_code == 422
     assert response.json()["code"] == "invalid_display_name"
+
+
+async def test_phone_verification_gives_the_badge_without_the_number(
+    api: httpx.AsyncClient, init_data: InitData, settings: Settings, telegram_id: int
+) -> None:
+    """POST /me/phone (S33, S32c, S43): подписанный контакт → бейдж и уровень 1; номера в ответе
+    нет. Тот же номер у другого аккаунта — 409, чужой контакт — 422."""
+    tokens = await login(api, init_data())
+    phone = new_phone()
+
+    response = await api.post(
+        "/api/v1/me/phone",
+        headers=bearer(tokens),
+        json={"contact": signed_contact(settings, telegram_id, phone)},
+    )
+
+    assert response.status_code == 200, response.text
+    assert (response.json()["phone_verified"], response.json()["trust_level"]) == (True, 1)
+    assert phone.removeprefix("+") not in response.text
+    me = await api.get("/api/v1/me", headers=bearer(tokens))
+    assert phone.removeprefix("+") not in me.text
+
+    other_tg = new_telegram_id()
+    other = await login(api, signed_init_data(settings, other_tg))
+    taken = await api.post(
+        "/api/v1/me/phone",
+        headers=bearer(other),
+        json={"contact": signed_contact(settings, other_tg, phone)},
+    )
+    assert (taken.status_code, taken.json()["code"]) == (409, "phone_taken")
+    assert phone.removeprefix("+") not in taken.text
+
+    foreign = await api.post(
+        "/api/v1/me/phone",
+        headers=bearer(other),
+        json={"contact": signed_contact(settings, telegram_id, new_phone())},
+    )
+    assert (foreign.status_code, foreign.json()["code"]) == (422, "invalid_phone_contact")
+    assert foreign.json()["reason"] == "not_own"

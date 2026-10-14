@@ -42,6 +42,14 @@ class TelegramProfile:
 
 
 @dataclass(frozen=True, slots=True, kw_only=True)
+class SharedPhone:
+    """Телефон из подписанного ответа `requestContact` и чей он (Telegram id)."""
+
+    telegram_id: int
+    phone_e164: str
+
+
+@dataclass(frozen=True, slots=True, kw_only=True)
 class SessionTokens:
     """Пара токенов для клиента. refresh_token — секрет: не логируется."""
 

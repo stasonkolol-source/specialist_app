@@ -38,6 +38,7 @@ export interface SpecialistProfileOut {
   rating: number | null;
   rating_count: number;
   is_new: boolean;
+  /** Факты-бейджи: `phone_verified` — телефон подтверждён */
   badges: string[];
   /** «Обычно отвечает за …»: медиана первого ответа в диалогах за 30 дней, в минутах; меньше пяти диалогов с ответом — null */
   response_time_minutes: number | null;

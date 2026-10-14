@@ -128,7 +128,7 @@ export const ViewsGetSpecialistResponse = zod.object({
     .describe('Когда отзывов достаточно (7.2); иначе is_new'),
   rating_count: zod.int(),
   is_new: zod.boolean(),
-  badges: zod.array(zod.string()),
+  badges: zod.array(zod.string()).describe('Факты-бейджи: `phone_verified` — телефон подтверждён'),
   response_time_minutes: zod
     .union([zod.int(), zod.null()])
     .describe(

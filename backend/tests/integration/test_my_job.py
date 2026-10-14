@@ -77,6 +77,10 @@ async def test_new_responses_become_seen_on_the_response_cards(world: Invites) -
         job=job_id,
     )
     version = await world.scalar("SELECT version FROM jobs.jobs WHERE id = :id", id=job_id)
+    # бейдж «Телефон подтверждён» (POST /me/phone) — из identity, номер в карточку не идёт
+    await world.execute(
+        "UPDATE identity.users SET phone_verified_at = now() WHERE id = :id", id=pro
+    )
 
     assert await fresh(world, client, job_id) == 2
     first = await cards(world, client, job_id)
@@ -91,6 +95,10 @@ async def test_new_responses_become_seen_on_the_response_cards(world: Invites) -
     assert (ana["performer"]["kind"], ana["performer"]["is_new"]) == ("pro", True)
     assert ana["performer"]["profile_id"] is not None
     assert (marko["performer"]["kind"], marko["performer"]["profile_id"]) == (None, None)
+    assert (ana["performer"]["phone_verified"], marko["performer"]["phone_verified"]) == (
+        True,
+        False,
+    )
     assert marko["price"] == {"type": "fixed", "amount": {"amount": 350_000, "currency": "RSD"}}
     assert marko["availability_note"] == "Сегодня, 19:00"
     assert await world.scalar("SELECT version FROM jobs.jobs WHERE id = :id", id=job_id) == version

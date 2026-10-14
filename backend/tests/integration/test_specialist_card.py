@@ -11,6 +11,10 @@ import pytest
 from sqlalchemy.ext.asyncio import AsyncEngine
 
 from app.modules.identity.api import RestrictionKind
+from app.modules.identity.application.use_cases.verify_phone import (
+    VerifyPhone,
+    VerifyPhoneCommand,
+)
 from app.modules.specialists.api import SpecialistsApi
 from app.modules.specialists.application.use_cases.add_portfolio_work import (
     AddPortfolioWork,
@@ -28,6 +32,7 @@ from app.platform.db.port import UnitOfWork
 from app.platform.kernel.ids import MediaId, new_id
 from app.platform.settings import Settings
 from tests.plugins.http import HttpApp, http_app
+from tests.plugins.identity import new_phone, new_telegram_id, signed_contact
 from tests.plugins.round_trips import round_trips
 from tests.plugins.search import NAME, Specialist
 
@@ -117,6 +122,34 @@ async def test_card_comes_in_one_request_with_etag(web: HttpApp) -> None:
         web, str(specialist.profile_id), **{"if-none-match": response.headers["etag"]}
     )
     assert again.status_code == 304
+    assert card["badges"] == []
+
+
+async def test_verified_phone_puts_the_badge_on_the_card(
+    web: HttpApp, storage_settings: Settings
+) -> None:
+    """«Телефон подтверждён» (POST /me/phone) — бейдж `phone_verified`; номера в карточке нет."""
+    specialist = Specialist(web.container)
+    await specialist.publish()
+    telegram_id, phone = new_telegram_id(), new_phone()
+    await specialist.execute(
+        "INSERT INTO identity.auth_identities (id, user_id, provider, subject)"
+        " VALUES (uuidv7(), :user, 'telegram', :subject)",
+        user=specialist.user_id,
+        subject=str(telegram_id),
+    )
+    await specialist.call(
+        VerifyPhone,
+        VerifyPhoneCommand(
+            actor_id=specialist.user_id,
+            contact=signed_contact(storage_settings, telegram_id, phone),
+        ),
+    )
+
+    response = await get(web, str(specialist.profile_id))
+
+    assert response.json()["badges"] == ["phone_verified"]
+    assert phone.removeprefix("+") not in response.text
 
 
 async def test_whole_city_specialist_has_the_city_instead_of_a_district(web: HttpApp) -> None:
@@ -142,8 +175,9 @@ async def test_whole_city_specialist_has_the_city_instead_of_a_district(web: Htt
 
 
 async def test_card_reads_do_not_grow_with_the_profile(web: HttpApp) -> None:
-    """Перф-аудит: карточка S08 — восемь запросов при любом числе районов и работ (было 16 и
-    по запросу на район): фото и работы — одним, справочники — из снимка в памяти процесса.
+    """Перф-аудит: карточка S08 — девять запросов при любом числе районов и работ (было 16 и
+    по запросу на район): фото и работы — одним, справочники — из снимка в памяти процесса,
+    бейдж телефона — одним к identity.
     Прайс S09 и отзывы S11 проверяют видимость без описаний и портфолио; отзывам S11 — ещё
     число «До платформы · N» для второй вкладки (7.6а)."""
     specialist = await published(web)
@@ -157,7 +191,7 @@ async def test_card_reads_do_not_grow_with_the_profile(web: HttpApp) -> None:
     with round_trips(engine) as reviews:
         assert (await get(web, f"{specialist.profile_id}/reviews")).status_code == 200
 
-    assert card.queries == 8, card.statements
+    assert card.queries == 9, card.statements
     assert (card.begins, card.ends) == (0, 0)
     assert services.queries == 3, services.statements
     assert reviews.queries == 5, reviews.statements
