@@ -54,6 +54,11 @@
     "privacyTelegram": "Moj Telegram",
     "privacyTelegramHint": "Sagovornik će videti link na vaš Telegram u dogovoru i u razgovoru kad se dogovorite",
     "privacyPhoneHint": "Telefon možete podeliti u razgovoru dugmetom „Podelite kontakt“ — Telegram će tražiti potvrdu",
+    "phone": "Potvrdi telefon",
+    "phoneHint": "Jedan dodir — Telegram će poslati broj. {who, select, client {Izvođači} other {Klijenti}} će videti oznaku, ali ne i sam broj",
+    "phoneVerified": "Telefon potvrđen · {who, select, client {izvođači} other {klijenti}} vide oznaku",
+    "phoneDeclined": "Broj nije poslat — oznake za sada nema. Možete ga potvrditi u bilo kom trenutku",
+    "phoneFailed": "Potvrda telefona nije uspela. Pokušajte ponovo",
     "saveError": "Čuvanje nije uspelo. Pokušajte ponovo.",
     "blocked": "Blokirani"
   },

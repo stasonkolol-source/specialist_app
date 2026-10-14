@@ -1,8 +1,9 @@
 // Кабинет специалиста S33 и правка профиля S34 (DEVELOPMENT_PLAN 2.10) на фейке backend кабинета:
 // статус и полнота, продолжение черновика, правка только изменённого, районы, проверки полей.
+import type { MeOut, PhoneIn } from '@sosed/api-client';
 import { setSession } from '@sosed/api-client';
 import { getNotificationsGetNotificationSettingsMockHandler } from '@sosed/api-client/mocks';
-import { act, fireEvent, screen, waitFor } from '@testing-library/react';
+import { act, fireEvent, screen, waitFor, within } from '@testing-library/react';
 import { HttpResponse, http } from 'msw';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
@@ -10,6 +11,7 @@ import { mainButton, pressMainButton, startApp } from '../../testing/app.tsx';
 import {
   DISTRICT_IDS,
   FIRST_SERVICE,
+  ME,
   NOTIFICATION_SETTINGS,
   PROFILE_DRAFT,
   PROFILE_FILLED,
@@ -292,6 +294,83 @@ describe('S33 cabinet', () => {
     await waitFor(() => expect(served).toBe(2));
     await act(async () => {});
     expect(screen.queryByRole('region', { name: 'Первые шаги' })).toBeNull();
+  });
+});
+
+describe('S33 phone badge', () => {
+  /** POST /me/phone: что прислало приложение; ответ — свежий /me или ошибка. */
+  function phoneBackend(reply: (contact: string) => Response | MeOut) {
+    const sent: string[] = [];
+    server.use(
+      http.post('*/api/v1/me/phone', async ({ request }) => {
+        const { contact } = (await request.json()) as PhoneIn;
+        sent.push(contact);
+        const answer = reply(contact);
+        return answer instanceof Response ? answer : HttpResponse.json(answer);
+      }),
+    );
+    return sent;
+  }
+  const VERIFY = /Подтвердить телефон/;
+
+  it('confirms the phone in one tap: Telegram sends the number, clients see only the badge', async () => {
+    withBackend(
+      new ProfileBackend({ ...PROFILE_FILLED, status: 'pending_review' }, [FIRST_SERVICE]),
+    );
+    const sent = phoneBackend(() => ({ ...ME, phone_verified: true, trust_level: 1 }));
+    const { telegram } = startApp('/cabinet');
+
+    const trust = await screen.findByRole('region', { name: 'Доверие' });
+    const button = within(trust).getByRole('button', { name: VERIFY });
+    expect(button.textContent).toMatch(
+      /Одно\sнажатие — Telegram отправит номер\. Клиенты увидят бейдж, сам номер — нет/,
+    );
+    await click(button);
+
+    expect(
+      await within(trust).findByText(/Телефон подтверждён · клиенты видят бейдж/),
+    ).toBeTruthy();
+    expect(within(trust).queryByRole('button')).toBeNull();
+    expect(sent).toHaveLength(1);
+    expect(sent[0]).toContain('contact=');
+    expect(telegram.callsOf('web_app_request_phone')).toHaveLength(1);
+  });
+
+  it('says honestly when the number was not sent or is taken by another account', async () => {
+    withBackend(new ProfileBackend(PUBLISHED, [FIRST_SERVICE]));
+    const sent = phoneBackend(() =>
+      HttpResponse.json(
+        {
+          type: 'about:blank',
+          title: 'phone_taken',
+          status: 409,
+          code: 'phone_taken',
+          detail: 'Этот номер уже подтверждён в другом аккаунте «Соседей»',
+          trace_id: 'test',
+        },
+        { status: 409, headers: { 'Content-Type': 'application/problem+json' } },
+      ),
+    );
+    startApp('/cabinet');
+
+    await click(await screen.findByRole('button', { name: VERIFY }));
+
+    const taken = await screen.findByText('Этот номер уже подтверждён в другом аккаунте «Соседей»');
+    expect(taken.getAttribute('role')).toBe('alert');
+    expect(sent).toHaveLength(1);
+  });
+
+  it('keeps the button when the person did not share the number', async () => {
+    withBackend(new ProfileBackend(PUBLISHED, [FIRST_SERVICE]));
+    const sent = phoneBackend(() => ME);
+    startApp('/cabinet', { contact: false });
+
+    await click(await screen.findByRole('button', { name: VERIFY }));
+
+    const declined = await screen.findByText(/Номер не отправлен — бейджа пока нет/);
+    expect(declined.getAttribute('role')).toBe('status');
+    expect(screen.getByRole('button', { name: VERIFY })).toBeTruthy();
+    expect(sent).toEqual([]);
   });
 });
 
