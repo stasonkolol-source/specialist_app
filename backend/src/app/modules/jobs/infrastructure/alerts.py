@@ -173,9 +173,25 @@ class SqlAlertMatches:
         ]
 
     async def recent_jobs(
-        self, alert_id: AlertId, *, since: datetime, now: datetime, limit: int
+        self, alert_id: AlertId, *, since: datetime, until: datetime, now: datetime, limit: int
     ) -> list[JobCandidate]:
         alerts, jobs = AlertRow.__table__, JobRow.__table__
+        # Набор досыла — `limit` свежих заявок окна без условий, которые меняются со временем
+        # (статус, места, полученные): иначе повтор задачи взял бы следующую пачку.
+        batch = (
+            select(_J.id.label("id"))
+            .select_from(alerts)
+            .join(jobs, _A.id == alert_id)
+            .where(
+                _J.visibility == Visibility.PUBLIC.value,
+                _J.published_at >= since,
+                _J.published_at <= until,
+                *alert_fits(alerts, jobs),
+            )
+            .order_by(_J.published_at.desc(), _J.id)
+            .limit(limit)
+            .subquery()
+        )
         distance = func.ST_Distance(_A.center, _J.point_public).label("distance")
         already = exists().where(_AM.job_id == _J.id, _AM.user_id == _A.user_id)
         rows = (
@@ -183,18 +199,15 @@ class SqlAlertMatches:
                 select(_J.id, _J.client_id, distance)
                 .select_from(alerts)
                 .join(jobs, _A.id == alert_id)
+                .join(batch, batch.c.id == _J.id)
                 .where(
                     _J.status == JobStatus.PUBLISHED.value,
                     _J.deleted_at.is_(None),
-                    _J.visibility == Visibility.PUBLIC.value,
-                    _J.published_at >= since,
                     or_(_J.expires_at.is_(None), _J.expires_at > now),
                     _J.responses_count < _J.max_responses,
                     ~already,
-                    *alert_fits(alerts, jobs),
                 )
                 .order_by(_J.published_at.desc(), _J.id)
-                .limit(limit)
             )
         ).mappings()
         return [

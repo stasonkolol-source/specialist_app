@@ -82,14 +82,14 @@ class Matches:
 
     def __init__(self, candidates: list[JobCandidate], *, recent: RecentCards | None) -> None:
         self.candidates, self.recent = candidates, recent
-        self.asked: list[tuple[AlertId, datetime, datetime, int]] = []
+        self.asked: list[tuple[AlertId, datetime, datetime, datetime, int]] = []
         self.recorded: dict[JobId, AlertMatch] = {}
         self.notified: dict[JobId, int] = {}
 
     async def recent_jobs(
-        self, alert_id: AlertId, *, since: datetime, now: datetime, limit: int
+        self, alert_id: AlertId, *, since: datetime, until: datetime, now: datetime, limit: int
     ) -> list[JobCandidate]:
-        self.asked.append((alert_id, since, now, limit))
+        self.asked.append((alert_id, since, until, now, limit))
         return list(self.candidates)
 
     async def recent_cards(
@@ -178,7 +178,7 @@ async def test_open_jobs_of_last_days_go_as_cards_then_digest() -> None:
 
     assert sent == 4
     assert uow.opened == 1
-    assert matches.asked == [(mine.id, NOW - CATCH_UP_WINDOW, NOW, CATCH_UP_LIMIT)]
+    assert matches.asked == [(mine.id, NOW - CATCH_UP_WINDOW, NOW, NOW, CATCH_UP_LIMIT)]
     assert [matches.recorded[item.job_id].delivery for item in jobs] == [
         INSTANT,
         INSTANT,
