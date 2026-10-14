@@ -299,6 +299,26 @@ _SUM = rf"\d+(?:k|e|r|eur|din|rsd|rub)?(?:\s+{_CURRENCY}){{0,2}}"
 Единицы времени — не валюта: «2 дня заранее», «24h unapred» — не предоплата."""
 _AFTER_THE_JOB = r"(?:\s+\w+){0,2}?\s+(?:posle|poslije|pisl\w*|nakon|after|po\s+(?:faktu|zavrs\w*))"
 """«5000 на карту после работы», «na karticu nakon završetka» — оплата по факту, а не вперёд."""
+_PAYMENT = r"(?:oplat|uplat|plat|plac)\w*"
+_AHEAD = r"(?:zarane|vpered|unapred|unaprijed)"
+_BEFORE_THE_JOB = rf"(?:{_AHEAD}|do\s+(?:nacala|pocetka)|pre\s+pocetka|srazu|sejcas|sada|odmah)"
+"""«Половину вперёд», «pola unapred», «половину до начала», «pola sada»: половина — до работы."""
+_HALF = r"(?:polovin\w*|pola?)"
+_BOOKING = r"(?:bron(?:i|ju|j|e)?|bronirovani\w*)"
+"""«Бронь», «брони», «бронирование» — существительные: «бронирую дату за вами» — не просьба."""
+_WALLET = r"(?:revolut\w*|revoljut\w*|wise|paypal\w*|usdt|usdc|binance|kript\w*|crypto\w*|btc)"
+_VIA = r"(?:na|preko|via|to|cerez|through|v|u)"
+"""Кошелёк вне площадки — только рядом с суммой или глаголом перевода: «wise choice» — нет."""
+_MONEY = (
+    r"(?:novac|pare|dengi|deneg|perev\w*|skin\w*|kin(?:te|i|u)?|uplat\w*|posalj\w*|prebac\w*|send)"
+)
+"""Деньги или глагол перевода перед «на материалы»: «материалы покупаю сам» — нет."""
+_DETAILS = (
+    r"(?:iban|rekvizit\w*|kartic\w*|kartu|karty|kartocku|kartocki"
+    r"|nomer\s+(?:kart\w*|sc[eo]t\w*)|broj\s+(?:kartic\w*|racun\w*))"
+)
+"""Реквизиты, которые просят прислать: «пришлите номер карты», «send me your iban»; «пришлите
+счёт» (за работу) — нет."""
 _PREPAYMENT = re.compile(
     r"\b(?:"
     # ru / uk / sr: предоплата, аванс, залог, завдаток, капара, «оплата заранее»,
@@ -306,19 +326,36 @@ _PREPAYMENT = re.compile(
     r"pred?oplat\w*|peredoplat\w*|avans\w*"
     r"|(?<!stradatelnyj )(?<!dejstvitelnyj )zalog(?:a|u|om|e)?\b(?! uspeh)"
     r"|zavdat(?:ok|ku|kom|ka)|kapar(?:a|e|u|om)|depozit\w*|predujam\w*"
-    rf"|(?:oplat|uplat|plat|plac)\w*\s+{_PRONOUN}(?:zarane|vpered|unapred|unaprijed)"
-    r"|(?:zarane|vpered|unapred|unaprijed)\s+(?:oplat|uplat|plat|plac)\w*"
+    rf"|{_PAYMENT}\s+{_PRONOUN}{_AHEAD}"
+    rf"|{_AHEAD}\s+{_PAYMENT}"
     rf"|(?:perevedi\w*|skin\w*|kin(?:te|i|u)?)\s+{_PRONOUN}(?:na\s+)?(?:kart|sc[eo]t)\w*"
-    rf"|{_SUM}\s+(?:zarane|vpered|unapred|unaprijed)"
+    rf"|{_SUM}\s+{_AHEAD}"
     rf"|{_SUM}\s+na\s+(?:kartu|kartku|karticu|kartocku)\b(?!{_AFTER_THE_JOB})"
+    # предварительная, частичная оплата; половина вперёд
+    rf"|(?:predvaritel\w+|castic\w+|delimic\w+)\s+{_PAYMENT}(?!{_AFTER_THE_JOB})"
+    rf"|{_HALF}\s+{_BEFORE_THE_JOB}"
+    # бронь даты, оплата брони, за бронь, uplata za rezervaciju
+    rf"|za\s+{_BOOKING}\b|{_PAYMENT}\s+(?:za\s+)?{_BOOKING}\b|{_BOOKING}\s+(?:dat|termin)\w*"
+    rf"|{_PAYMENT}\s+(?:za\s+)?rezervacij\w*|rezervacij\w*\s+(?:unapred|uplat\w*)"
+    # деньги на материалы — только после денег или глагола перевода
+    rf"|{_MONEY}\s+{_PRONOUN}(?:{_SUM}\s+)?(?:na|za)\s+materi\w*(?!{_AFTER_THE_JOB})"
+    rf"|(?:na|za)\s+materi\w*\s+{_AHEAD}"
+    # кошелёк вне площадки: сумма или глагол перевода перед «на revolut», «via wise»
+    rf"|{_SUM}\s+{_VIA}\s+(?:my\s+|moj\s+)?{_WALLET}"
+    rf"|(?:perevedi\w*|skin\w*|kin(?:te|i|u)?|posalj\w*|prebac\w*|send|{_PAYMENT})"
+    rf"\s+{_PRONOUN}(?:{_SUM}\s+)?{_VIA}\s+(?:my\s+|moj\s+)?{_WALLET}"
+    # просьба прислать реквизиты
+    rf"|(?:prisl\w*|posalj\w*|posli\w*|send|dajte|daj)\s+{_PRONOUN}(?:\w+\s+)?{_DETAILS}\b"
     # en
     r"|prepay\w*|pre\s?pay\w*|upfront|advance\s+payment|pay\s+(?:in\s+)?advance|deposit\w*"
     r")\b"
 )
 """По скелету предложения (normalize.clauses): «предоплата», «predoplata» и «пред0плата» —
 одно слово. В скелете нет двойных букв: «заранее» — это «zarane». Основы узкие: «zalogaj»,
-«kaparima», «завдати шкоди», «kino karte», «страдательный залог» — не предоплата."""
-_ENGLISH_KEYWORD = ("prepay", "pre pay", "upfront", "advance", "pay", "deposit")
+«kaparima», «завдати шкоди», «kino karte», «страдательный залог» — не предоплата. Бронь — только
+рядом с датой, оплатой или «за»; «на материалы» — только после денег или глагола перевода;
+кошельки (Revolut, Wise, PayPal, USDT) — только с суммой или глаголом перевода."""
+_ENGLISH_KEYWORD = ("prepay", "pre pay", "upfront", "advance", "pay", "deposit", "send")
 
 
 def _skeletons(words: Iterable[str]) -> frozenset[str]:
@@ -340,12 +377,14 @@ _BETWEEN = _skeletons(
      "beru", "berem", "beremo", "uzimam", "uzimamo", "trazim", "trazimo", "trebam", "treba",
      "trebuju", "trebuem", "trebuetsja", "nado", "nuzna", "nuzno", "nuzen", "nuzny",
      "potreban", "potrebna", "potrebno", "potrebni", "potribna", "potribno", "potriben",
+     "potrebe", "potreba", "potrebu", "neobhodimosti", "nuzdy", "za", "v",
      "morate", "moras", "moram", "mora", "prosu", "prosim", "primam", "primamo", "vnosit",
      "platit", "placat", "placati", "placate", "uplacivati", "uplatiti", "platiti",
      "take", "need", "needs", "require", "ask", "charge", "want", "accept", "pay", "make"}
 )  # fmt: skip
-"""Между отрицанием и словом: определители и глаголы «брать, просить, нужно, платить» — «без
-всякой предоплаты», «не беру аванс», «не нужно вносить предоплату», «no need to pay in advance»."""
+"""Между отрицанием и словом: определители, глаголы «брать, просить, нужно, платить» и «нужды в»
+— «без всякой предоплаты», «не беру аванс», «не нужно вносить предоплату», «nema potrebe za
+avansom», «нет необходимости в предоплате», «no need to pay in advance»."""
 _CONJUNCTIONS = _skeletons({"i", "ili", "ni", "ta", "and", "or", "nor", "ani", "a"})
 """Однородные слова наследуют отрицание: «без предоплаты и залога», «no deposit or prepayment»."""
 _NOT_NEEDED = re.compile(
@@ -444,7 +483,8 @@ def _domains(folded: str, found: Sequence[Finding]) -> tuple[str, ...]:
 
 
 def find_prepayment(text: str) -> bool:
-    """Просит ли текст предоплату, аванс или перевод на карту (ru, uk, sr, en).
+    """Просит ли текст предоплату, аванс, перевод на карту, половину вперёд, оплату брони, деньги
+    на материалы, перевод на кошелёк вне площадки или реквизиты (ru, uk, sr, en).
 
     Смотрим по фразам: отрицание считается, только если прямо относится к слову («работаю
     без предоплаты», «не беру аванс», «avans nije potreban», «no upfront payment»). «Не

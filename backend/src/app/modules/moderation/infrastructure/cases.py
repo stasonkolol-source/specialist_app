@@ -171,6 +171,31 @@ class SqlRiskSignals:
         )
         return len((await self._session.execute(stmt)).scalars().all())
 
+    async def of_user(self, user_id: UserId, *, since: datetime) -> list[RiskSignal]:
+        stmt = (
+            select(RiskSignalRow)
+            .where(RiskSignalRow.user_id == user_id, RiskSignalRow.created_at >= since)
+            .order_by(RiskSignalRow.created_at, RiskSignalRow.id)
+            .limit(MAX_SIGNALS)
+        )
+        rows = (await self._session.execute(stmt)).scalars().all()
+        return [
+            RiskSignal(
+                user_id=UserId(row.user_id),
+                kind=row.signal,
+                weight=float(row.weight),
+                ref_type=row.ref_type,
+                ref_id=row.ref_id,
+                details=dict(row.details),
+                dedupe_key=row.dedupe_key,
+            )
+            for row in rows
+        ]
+
+
+MAX_SIGNALS = 200
+"""Больше сигналов за окно карточке не нужно: это уже не человек, а скрипт."""
+
 
 def _to_domain(row: CaseRow) -> Case:
     return Case(
