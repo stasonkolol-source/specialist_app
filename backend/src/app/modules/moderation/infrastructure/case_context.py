@@ -43,6 +43,7 @@ from app.modules.moderation.domain.cases import Case, CaseTrigger, EntityType
 from app.modules.moderation.domain.reports import ReportStatus
 from app.modules.moderation.domain.risk import RISK_WINDOW, summarize
 from app.modules.moderation.infrastructure.models import CaseRow, ReportRow
+from app.modules.pricing.api import PricingApi
 from app.modules.reviews.api import ReviewsApi
 from app.modules.specialists.api import SpecialistsApi
 from app.platform.db.query import SqlQuery
@@ -71,6 +72,7 @@ class FacadeCaseContext(SqlQuery, CaseContextQuery):
         session: AsyncSession,
         identity: IdentityApi,
         specialists: SpecialistsApi,
+        pricing: PricingApi,
         jobs: JobsApi,
         messaging: MessagingApi,
         reviews: ReviewsApi,
@@ -83,6 +85,7 @@ class FacadeCaseContext(SqlQuery, CaseContextQuery):
     ) -> None:
         super().__init__(session)
         self._identity, self._specialists, self._jobs = identity, specialists, jobs
+        self._pricing = pricing
         self._messaging, self._reviews, self._photos = messaging, reviews, photos
         self._deals, self._catalog, self._geo = deals, catalog, geo
         self._signals, self._clock = signals, clock
@@ -151,7 +154,12 @@ class FacadeCaseContext(SqlQuery, CaseContextQuery):
         if not found:
             return _Found(CaseObject(kind="profile", missing=True))
         profile = found[0]
-        fields = _fields(headline=profile.headline, about=profile.about)
+        # прайс — часть текста профиля (B3): контакт в позиции модератор увидит здесь
+        fields = _fields(
+            headline=profile.headline,
+            about=profile.about,
+            prices=await self._pricing.text_for_review(profile.id),
+        )
         # похожее фото у другого аккаунта (7.6): само загруженное фото портфолио — в чат
         photo = next(
             (

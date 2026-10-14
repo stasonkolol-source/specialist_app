@@ -35,6 +35,7 @@ from app.modules.moderation.infrastructure.case_context import (
 )
 from app.modules.moderation.infrastructure.chat import TelegramModeratorsChat
 from app.modules.moderation.tests.fakes import FakeIdentity
+from app.modules.pricing.api import PricingApi
 from app.modules.reviews.api import PublicReview, ReviewForCheck, ReviewsApi
 from app.modules.specialists.api import ProfileForIndex, ProfileRef, SpecialistsApi
 from app.platform.contracts.events.moderation import ModerationDecision
@@ -79,6 +80,9 @@ class Facades:
     async def profiles_for_index(self, profile_ids: Collection[UUID]) -> list[ProfileForIndex]:
         return []
 
+    async def text_for_review(self, profile_id: UUID) -> str:
+        return ""
+
     async def job_for_review(self, job_id: UUID) -> JobForReview | None:
         return self.jobs.get(job_id)
 
@@ -118,6 +122,7 @@ def contexts(moderation: Moderation, facades: Facades) -> FacadeCaseContext:
         moderation.session,
         identity,
         cast(SpecialistsApi, facades),
+        cast(PricingApi, facades),
         cast(JobsApi, facades),
         cast(MessagingApi, facades),
         cast(ReviewsApi, facades),

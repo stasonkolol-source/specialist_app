@@ -1543,6 +1543,9 @@ msgstr "Захтев"
 msgid "bot.moderation.field.availability"
 msgstr "Када може"
 
+msgid "bot.moderation.field.prices"
+msgstr "Ценовник"
+
 msgid "bot.moderation.why.report"
 msgstr "пријава: {reason}"
 

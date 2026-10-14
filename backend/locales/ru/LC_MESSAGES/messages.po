@@ -1543,6 +1543,9 @@ msgstr "Заявка"
 msgid "bot.moderation.field.availability"
 msgstr "Когда сможет"
 
+msgid "bot.moderation.field.prices"
+msgstr "Прайс"
+
 msgid "bot.moderation.why.report"
 msgstr "жалоба: {reason}"
 

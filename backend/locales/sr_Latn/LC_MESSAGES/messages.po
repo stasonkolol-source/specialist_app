@@ -1544,6 +1544,9 @@ msgstr "Zahtev"
 msgid "bot.moderation.field.availability"
 msgstr "Kada može"
 
+msgid "bot.moderation.field.prices"
+msgstr "Cenovnik"
+
 msgid "bot.moderation.why.report"
 msgstr "prijava: {reason}"
 

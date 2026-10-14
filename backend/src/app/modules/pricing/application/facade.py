@@ -1,4 +1,5 @@
-"""Реализация PricingApi для поиска (ADR-0020 §6): сводка видимого прайса каждого профиля."""
+"""Реализация PricingApi (ADR-0020 §6): сводка видимого прайса каждого профиля для поиска,
+прайс для карточки S08–S09 и текстом для модерации профиля (B3)."""
 
 from collections import defaultdict
 from collections.abc import Collection, Iterable
@@ -25,6 +26,14 @@ class PricingFacade(PricingApi):
 
     async def public_services(self, profile_id: UUID) -> list[PublicService]:
         return [_public(service) for service in await self._services.visible([profile_id])]
+
+    async def text_for_review(self, profile_id: UUID) -> str:
+        return "\n".join(
+            part
+            for service in await self._services.visible([profile_id])
+            for part in (service.title, service.description, service.unit)
+            if part
+        )
 
 
 def _summary(services: Iterable[Service]) -> SearchPrices:

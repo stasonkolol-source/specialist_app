@@ -1,6 +1,8 @@
 """Задачи moderation (ADR-0020 §3).
 
 - `moderation.auto_check` — ModerationRequested: автопроверка объекта (§14.1, план 2.6).
+- `moderation.check_price_list` — PriceListChanged: прайс — часть текста профиля, его правка —
+  автопроверка профиля как правки (B3).
 - `moderation.rate_limit_signals` — раз в 15 минут: сигналы риска по систематическим 429
   (ARCHITECTURE §13.3).
 - `moderation.record_reregistration` — UserRegistered: повторная регистрация после удаления
@@ -25,6 +27,7 @@ from app.modules.moderation.application.ports import (
     AUTO_CHECK,
     CHECK_DUPLICATES,
     CHECK_IMAGE,
+    CHECK_PRICE_LIST,
     CLOSE_DISPUTE_CASE,
     NOTE_DISPUTE_ANSWER,
     NOTE_DISPUTE_UNANSWERED,
@@ -75,6 +78,7 @@ from app.platform.contracts.events.deals import (
 from app.platform.contracts.events.identity import UserRegistered
 from app.platform.contracts.events.media import MediaReady
 from app.platform.contracts.events.moderation import CaseOpened, ModerationRequested
+from app.platform.contracts.events.pricing import PriceListChanged
 from app.platform.queue.tasks import PeriodicRun, periodic, subscriber, task
 
 
@@ -86,6 +90,19 @@ async def auto_check(event: ModerationRequested, check: FromDishka[AutoCheck]) -
             entity_id=event.entity_id,
             author_id=event.author_id,
             edit=event.edit,
+        )
+    )
+
+
+@subscriber(PriceListChanged, CHECK_PRICE_LIST)
+async def check_price_list(event: PriceListChanged, check: FromDishka[AutoCheck]) -> None:
+    """Прайс изменился: профиль снова проходит автопроверку — уже с новыми позициями."""
+    await check(
+        AutoCheckCommand(
+            entity_type=EntityType.PROFILE,
+            entity_id=event.profile_id,
+            author_id=event.user_id,
+            edit=True,
         )
     )
 

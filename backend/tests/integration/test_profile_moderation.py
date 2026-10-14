@@ -1,6 +1,7 @@
 """Профиль исполнителя проходит модерацию (DEVELOPMENT_PLAN 2.8a): отправка → автопроверка →
 P2 (новый профиль всегда проверяет человек) → одобрение → опубликован и уведомление; отказ →
-снова черновик с причиной. Контейнер процесса, данные коммитятся.
+снова черновик с причиной. Прайс — часть текста профиля: его правка — пост-модерация профиля
+(B3). Имя профиля, похожее на контакт или ник, — 422. Контейнер процесса, данные коммитятся.
 """
 
 from collections.abc import AsyncIterator
@@ -51,6 +52,7 @@ from app.platform.db.port import UnitOfWork
 from app.platform.kernel.ids import CategoryId, CityId, DistrictId, UserId
 from app.platform.settings import Settings
 from tests.plugins.identity import accept_rules, insert_user
+from tests.plugins.queue import run_queued
 
 pytestmark = pytest.mark.integration
 
@@ -318,5 +320,34 @@ async def test_profile_name_that_looks_like_a_contact_is_refused(
             with pytest.raises(NameLooksLikeContactError):
                 await edit(EditProfileCommand(actor_id=user_id, display_name="ivan_master99"))
             await edit(EditProfileCommand(actor_id=user_id, display_name="Иван Петров"))
+    finally:
+        await drop_jobs(container, user_id)
+
+
+async def test_price_list_edit_is_checked_with_the_profile(container: AsyncContainer) -> None:
+    """B3: позиция прайса с телефоном — подписчик PriceListChanged проверяет профиль вместе с
+    прайсом и открывает кейс о профиле."""
+    user_id, profile_id = await published_profile(container)
+    try:
+        async with container() as request:
+            await (await request.get(AddService))(
+                AddServiceCommand(
+                    actor_id=user_id,
+                    title="Срочный вызов",
+                    description="Звоните +381 64 123 4567",
+                    price_type=PriceType.FIXED,
+                    price_min=200_000,
+                )
+            )
+
+        assert await run_queued(container, "moderation.check_price_list", user_id=user_id) == 1
+
+        case = await open_case(container, profile_id)
+        assert case is not None
+        signals = await scalar(
+            container, "SELECT evidence->0->'signals' FROM moderation.cases WHERE id = :id", id=case
+        )
+        assert isinstance(signals, list)
+        assert any("contacts" in signal for signal in signals)
     finally:
         await drop_jobs(container, user_id)
