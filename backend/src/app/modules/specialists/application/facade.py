@@ -8,12 +8,12 @@
 
 from collections.abc import Collection
 from dataclasses import replace
-from typing import Final
 from uuid import UUID
 
 from app.modules.catalog.api import CatalogApi
 from app.modules.identity.api import IdentityApi
 from app.modules.specialists.api import (
+    MASKED_TRUST_LEVEL,
     PortfolioWorkRef,
     ProfileForIndex,
     ProfileForReview,
@@ -42,9 +42,6 @@ from app.platform.text.contact_masking import mask_contacts
 REVIEWABLE = frozenset(
     {ProfileStatus.PENDING_REVIEW, ProfileStatus.PUBLISHED, ProfileStatus.HIDDEN}
 )
-MASKED_TRUST_LEVEL: Final = 1
-"""До этого уровня доверия включительно тексты профиля на выдаче — с маской контактов (B3):
-у уровня 2 сделки уже были, у 0–1 правку ещё никто не смотрел."""
 
 
 class SpecialistsFacade(SpecialistsApi):
@@ -85,6 +82,7 @@ class SpecialistsFacade(SpecialistsApi):
             return replace(profile, display_name=name)
         return replace(
             profile,
+            masked=True,
             display_name=name,
             headline=_masked(profile.headline),
             about=_masked(profile.about),

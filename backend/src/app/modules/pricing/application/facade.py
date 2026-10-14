@@ -2,8 +2,8 @@
 прайс для карточки S08–S09 и текстом для модерации профиля (B3).
 
 Прайс правится без проверки до публикации: позиция видна сразу, а модерация проверяет её после
-(PriceListChanged). Поэтому у автора с уровнем доверия ≤ 1 (`SpecialistsApi.untrusted`) контакты
-в тексте позиций на карточке скрыты маской."""
+(PriceListChanged). Поэтому у автора с уровнем доверия ≤ 1 контакты в тексте позиций на карточке
+скрыты маской (`masked`: автора знает вызывающий — лишнего чтения нет)."""
 
 from collections import defaultdict
 from collections.abc import Collection, Iterable
@@ -13,7 +13,6 @@ from uuid import UUID
 from app.modules.pricing.api import PricingApi, PublicService, SearchPrices
 from app.modules.pricing.application.ports import ServiceRepository
 from app.modules.pricing.domain.service import PriceType, Service
-from app.modules.specialists.api import SpecialistsApi
 from app.platform.kernel.ids import CategoryId
 from app.platform.text.contact_masking import mask_contacts
 
@@ -22,8 +21,8 @@ HOUR = "hour"
 
 
 class PricingFacade(PricingApi):
-    def __init__(self, services: ServiceRepository, specialists: SpecialistsApi) -> None:
-        self._services, self._specialists = services, specialists
+    def __init__(self, services: ServiceRepository) -> None:
+        self._services = services
 
     async def search_prices(self, profile_ids: Collection[UUID]) -> dict[UUID, SearchPrices]:
         grouped: defaultdict[UUID, list[Service]] = defaultdict(list)
@@ -31,11 +30,11 @@ class PricingFacade(PricingApi):
             grouped[service.profile_id].append(service)
         return {profile_id: _summary(items) for profile_id, items in grouped.items()}
 
-    async def public_services(self, profile_id: UUID) -> list[PublicService]:
+    async def public_services(
+        self, profile_id: UUID, *, masked: bool = False
+    ) -> list[PublicService]:
         services = [_public(service) for service in await self._services.visible([profile_id])]
-        if not services or profile_id not in await self._specialists.untrusted([profile_id]):
-            return services
-        return [_masked(service) for service in services]
+        return [_masked(service) for service in services] if masked else services
 
     async def text_for_review(self, profile_id: UUID) -> str:
         return "\n".join(

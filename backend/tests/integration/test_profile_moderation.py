@@ -376,9 +376,11 @@ async def test_texts_of_a_new_author_are_shown_masked(container: AsyncContainer)
 
         async with container() as request:
             profile = await (await request.get(SpecialistsApi)).public_profile(profile_id)
-            shown = await (await request.get(PricingApi)).public_services(profile_id)
-        assert profile is not None
-        assert profile.about == "Пишите: •••"
+            assert profile is not None
+            shown = await (await request.get(PricingApi)).public_services(
+                profile_id, masked=profile.masked
+            )
+        assert (profile.masked, profile.about) == (True, "Пишите: •••")
         assert [service.description for service in shown] == [None, "Звоните •••"]
 
         engine = await container.get(AsyncEngine)
@@ -388,9 +390,7 @@ async def test_texts_of_a_new_author_are_shown_masked(container: AsyncContainer)
             )
         async with container() as request:
             profile = await (await request.get(SpecialistsApi)).public_profile(profile_id)
-            shown = await (await request.get(PricingApi)).public_services(profile_id)
         assert profile is not None
-        assert profile.about == "Пишите: t.me/ivan_master"
-        assert shown[1].description == "Звоните +381 64 123 4567"
+        assert (profile.masked, profile.about) == (False, "Пишите: t.me/ivan_master")
     finally:
         await drop_jobs(container, user_id)

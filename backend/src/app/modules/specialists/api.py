@@ -8,12 +8,17 @@
 from collections.abc import Collection
 from dataclasses import dataclass
 from datetime import datetime
-from typing import Protocol
+from typing import Final, Protocol
 from uuid import UUID
 
 from app.modules.specialists.errors import ProfileNotFoundError as ProfileNotFoundError
 from app.platform.kernel.geo import GeoPoint
 from app.platform.kernel.ids import CategoryId, CityId, DistrictId, MediaId, UserId
+
+MASKED_TRUST_LEVEL: Final = 1
+"""До этого уровня доверия автора включительно публичные тексты профиля (заголовок, «о себе»,
+подписи работ, прайс) показываются с маской контактов (B3): правка опубликованного видна сразу,
+а проверяется после; у уровня 2 сделки уже были."""
 
 
 @dataclass(frozen=True, slots=True, kw_only=True)
@@ -79,6 +84,9 @@ class PublicProfile:
     published_at: datetime | None
     works: tuple[PublicWork, ...]
     """Опубликованные работы портфолио по порядку S37."""
+    masked: bool = False
+    """Тексты показаны с маской контактов (автор — уровень ≤ MASKED_TRUST_LEVEL): прайс того же
+    профиля показывать так же (`PricingApi.public_services(masked=…)`, B3)."""
 
 
 @dataclass(frozen=True, slots=True, kw_only=True)

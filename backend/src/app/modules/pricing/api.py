@@ -53,9 +53,12 @@ class PricingApi(Protocol):
         """Прайсы профилей для поиска; профиль без видимых позиций в ответ не попадает."""
         ...
 
-    async def public_services(self, profile_id: UUID) -> list[PublicService]:
-        """Видимые позиции прайса профиля в порядке S35: «Скрытые» и удалённые — нет. У автора
-        с уровнем доверия ≤ 1 контакты в названии, описании и единице скрыты маской (B3)."""
+    async def public_services(
+        self, profile_id: UUID, *, masked: bool = False
+    ) -> list[PublicService]:
+        """Видимые позиции прайса профиля в порядке S35: «Скрытые» и удалённые — нет. `masked` —
+        контакты в названии, описании и единице скрыты маской: у автора с уровнем доверия ≤ 1
+        (`PublicProfile.masked`, B3) — решает вызывающий, он уже знает автора."""
         ...
 
     async def text_for_review(self, profile_id: UUID) -> str:

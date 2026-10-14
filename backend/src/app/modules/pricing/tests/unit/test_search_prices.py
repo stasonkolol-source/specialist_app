@@ -12,7 +12,6 @@ from app.modules.pricing.api import SearchPrices
 from app.modules.pricing.application.facade import PricingFacade
 from app.modules.pricing.application.ports import ServiceRepository
 from app.modules.pricing.domain.service import PriceType, Service
-from app.modules.specialists.api import SpecialistsApi
 from app.platform.kernel.ids import CategoryId, new_id
 
 pytestmark = pytest.mark.unit
@@ -53,9 +52,7 @@ def item(
 
 
 async def prices_of(*services: Service) -> SearchPrices:
-    facade = PricingFacade(
-        cast(ServiceRepository, Visible(*services)), cast(SpecialistsApi, object())
-    )
+    facade = PricingFacade(cast(ServiceRepository, Visible(*services)))
     return (await facade.search_prices([PROFILE]))[PROFILE]
 
 
