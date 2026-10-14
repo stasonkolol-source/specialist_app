@@ -1546,6 +1546,9 @@ msgstr "Когда сможет"
 msgid "bot.moderation.field.prices"
 msgstr "Прайс"
 
+msgid "bot.moderation.field.works"
+msgstr "Работы на проверке"
+
 msgid "bot.moderation.why.report"
 msgstr "жалоба: {reason}"
 

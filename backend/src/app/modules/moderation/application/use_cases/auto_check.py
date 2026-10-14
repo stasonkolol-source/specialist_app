@@ -31,6 +31,7 @@ from app.modules.moderation.application.use_cases.open_case import CaseOpener, O
 from app.modules.moderation.domain.cases import CaseTrigger, EntityType
 from app.modules.moderation.domain.pipeline import (
     SAMPLE_RATE,
+    SAMPLED,
     Checks,
     Route,
     Routing,
@@ -51,7 +52,8 @@ from app.platform.kernel.ids import UserId
 log = structlog.get_logger(__name__)
 
 SAMPLE_RATE_FLAG = "moderation.sample_rate"
-"""Параметр флага: доля публикаций уровня 0 на проверку после публикации (0–1)."""
+"""Параметр флага: доля публикаций уровня 0 на проверку после публикации (0–1); без флага —
+SAMPLE_RATE (2 %). Выборка — только заявки, отклики и отзывы (pipeline.SAMPLED)."""
 
 
 @dataclass(frozen=True, slots=True, kw_only=True)
@@ -129,7 +131,9 @@ class AutoCheck:
                 policy=policy,
                 always_review=content.always_review,
                 risky_category=content.risk_level >= 1,
-                sampled=trust_level == 0 and sampled(cmd.entity_id, await self._sample_rate()),
+                sampled=trust_level == 0
+                and cmd.entity_type in SAMPLED
+                and sampled(cmd.entity_id, await self._sample_rate()),
             )
         )
 
@@ -192,7 +196,19 @@ def _case(
     cmd: AutoCheckCommand, content: TargetContent, routing: Routing, *, queue: Queue
 ) -> OpenCaseCommand:
     """Кейс об объекте; о сообщении с просьбой о предоплате — об авторе (pipeline.about_author):
-    повтор за сутки дописывается в открытый кейс, id сообщения — в поводе («предоплата ×3»)."""
+    повтор за сутки дописывается в открытый кейс, id сообщения — в поводе («предоплата ×3»).
+    Работа нового профиля — повод в кейс профиля с её фото (B5): одна карточка на исполнителя,
+    а не по карточке на работу; версию кейса профиля работа не меняет."""
+    if content.profile_case is not None:
+        return OpenCaseCommand(
+            queue=queue,
+            entity_type=EntityType.PROFILE,
+            entity_id=content.profile_case,
+            subject_id=content.author_id,
+            trigger=_trigger(cmd, routing),
+            details={"signals": list(routing.signals), "work_id": str(cmd.entity_id)},
+            media_ids=content.media_ids,
+        )
     if about_author(cmd.entity_type, routing):
         return OpenCaseCommand(
             queue=queue,

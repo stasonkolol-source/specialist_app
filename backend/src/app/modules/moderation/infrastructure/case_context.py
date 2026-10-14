@@ -45,7 +45,7 @@ from app.modules.moderation.domain.risk import RISK_WINDOW, summarize
 from app.modules.moderation.infrastructure.models import CaseRow, ReportRow
 from app.modules.pricing.api import PricingApi
 from app.modules.reviews.api import ReviewsApi
-from app.modules.specialists.api import SpecialistsApi
+from app.modules.specialists.api import SpecialistsApi, WaitingWork
 from app.platform.db.query import SqlQuery
 from app.platform.kernel.clock import Clock
 from app.platform.kernel.errors import ExternalServiceError
@@ -154,20 +154,23 @@ class FacadeCaseContext(SqlQuery, CaseContextQuery):
         if not found:
             return _Found(CaseObject(kind="profile", missing=True))
         profile = found[0]
-        # прайс — часть текста профиля (B3): контакт в позиции модератор увидит здесь
+        # прайс — часть текста профиля (B3); работы нового профиля ждут в этом же кейсе (B5)
+        waiting = await self._specialists.waiting_works(profile.id)
         fields = _fields(
             headline=profile.headline,
             about=profile.about,
             prices=await self._pricing.text_for_review(profile.id),
+            works=_works(waiting),
         )
-        # похожее фото у другого аккаунта (7.6): само загруженное фото портфолио — в чат
+        # похожее фото у другого аккаунта (7.6): само загруженное фото портфолио — в чат; иначе
+        # первое фото работы, ждущей вместе с профилем (остальные — в админке)
         photo = next(
             (
                 MediaId(UUID(str(entry["media_id"])))
                 for entry in case.evidence
                 if DUPLICATE in _signals(entry) and entry.get("media_id")
             ),
-            None,
+            waiting[0].media_id if waiting else None,
         )
         return _Found(CaseObject(kind="profile", fields=fields), photo_id=photo)
 
@@ -390,6 +393,14 @@ def _media(case: Case) -> _Found:
     kind = PHOTO_KINDS.get(str(first.get("purpose")), "photo")
     hidden = any(bool(entry.get("hidden")) for entry in case.evidence)
     return _Found(CaseObject(kind=kind), photo_id=MediaId(case.entity_id), hidden=hidden)
+
+
+def _works(waiting: Collection[WaitingWork]) -> str | None:
+    """Работы нового профиля строкой карточки: «3 — Люстра; Розетка; —»."""
+    if not waiting:
+        return None
+    captions = "; ".join(work.caption or "—" for work in waiting)
+    return f"{len(waiting)} — {captions}"
 
 
 def _fields(**parts: str | None) -> tuple[ContentField, ...]:

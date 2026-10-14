@@ -110,13 +110,16 @@ class ProfileForReview:
 
     user_id: UserId
     text: str
-    """Имя, «коротко о себе» и «о себе» — одним текстом."""
+    """Имя, «коротко о себе» и «о себе» — одним текстом; у нового профиля — и подписи работ,
+    ждущих проверки вместе с ним (B5)."""
     version: int
     """Редакция профиля (`Profile.revision`): решение модератора действует только на неё."""
     first_review: bool
     """Новый профиль или переход в «Специалист»: проверяет человек (P2, §14.1)."""
     risk_level: int
     """Самый строгий риск категорий профиля (catalog)."""
+    media_ids: tuple[MediaId, ...] = ()
+    """Фото работ нового профиля, ждущих проверки: доказательства кейса профиля (B5)."""
 
 
 @dataclass(frozen=True, slots=True, kw_only=True)
@@ -148,9 +151,23 @@ class WorkForReview:
     """Ждёт проверки (новая); False — опубликована, проверяется правка подписи."""
     new_profile: bool
     """Профиль ещё ни разу не публиковался: портфолио нового профиля проверяет человек (P2,
-    ARCHITECTURE §14.1, ADR-0016)."""
+    ARCHITECTURE §14.1, ADR-0016) — в кейсе профиля (B5)."""
     risk_level: int
     """Самый строгий риск категорий профиля (catalog), как у профиля."""
+    profile_id: UUID
+    profile_status: str
+    """draft | pending_review | published | hidden | suspended: работа нового профиля ждёт
+    модератора в кейсе профиля, пока тот на проверке (B5)."""
+
+
+@dataclass(frozen=True, slots=True, kw_only=True)
+class WaitingWork:
+    """Работа нового профиля, ждущая проверки вместе с ним: «Одобрить профиль» публикует и её."""
+
+    id: UUID
+    media_id: MediaId
+    caption: str | None
+    revision: int
 
 
 @dataclass(frozen=True, slots=True, kw_only=True)
@@ -200,9 +217,14 @@ class SpecialistsApi(Protocol):
         удалён или проверять нечего (черновик, приостановлен)."""
         ...
 
-    async def approve_profile(self, profile_id: UUID, *, version: int | None) -> None:
+    async def approve_profile(self, profile_id: UUID, *, version: int | None) -> bool:
         """Проверка пройдена — в транзакции вызывающего: ждавший проверки публикуется;
-        другая версия или статус — ничего."""
+        другая версия или статус — ничего. True — опубликован сейчас."""
+        ...
+
+    async def waiting_works(self, profile_id: UUID) -> list[WaitingWork]:
+        """Работы профиля, который ещё ни разу не публиковался, ждущие проверки, — по порядку S37.
+        У опубликованного раньше профиля — пусто: его работы проверяются каждая сама (B5)."""
         ...
 
     async def reject_profile(self, profile_id: UUID, *, reason_code: str) -> None:

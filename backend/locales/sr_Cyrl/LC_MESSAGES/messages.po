@@ -1546,6 +1546,9 @@ msgstr "Када може"
 msgid "bot.moderation.field.prices"
 msgstr "Ценовник"
 
+msgid "bot.moderation.field.works"
+msgstr "Радови на провери"
+
 msgid "bot.moderation.why.report"
 msgstr "пријава: {reason}"
 

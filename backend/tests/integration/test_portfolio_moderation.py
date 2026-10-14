@@ -4,12 +4,14 @@
 проверяется, когда фото прошло проверку (итог фото — как у `moderation.check_image`: запись
 итога и повторный запрос проверки работ в одной транзакции); чистые подпись и фото публикуют
 работу, флаг — кейс P2 о работе, решение модератора публикует или скрывает. Портфолио нового
-профиля всегда проверяет человек. Задачи — как в воркере; данные коммитятся.
+профиля всегда проверяет человек — в кейсе профиля (B5): ни подпись, ни фото без ключа AI своих
+кейсов не открывают, «Одобрить профиль» публикует работы. Подписи у автора уровня ≤ 1 клиенты
+видят с маской контактов (B3). Задачи — как в воркере; данные коммитятся.
 """
 
 import json
 from collections.abc import AsyncIterator
-from typing import Any
+from typing import Any, cast
 from uuid import UUID
 
 import pytest
@@ -18,11 +20,17 @@ from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncEngine
 
 from app.entrypoints._wiring import make_worker_container
-from app.modules.media.api import MediaModeration, ModerationVerdict
+from app.modules.media.api import MediaApi, MediaModeration, ModerationVerdict
+from app.modules.moderation.application.ports import AutoCheckMetrics
+from app.modules.moderation.application.use_cases.check_image import (
+    CheckImage,
+    CheckImageCommand,
+)
 from app.modules.moderation.application.use_cases.decide_case import (
     DecideCase,
     DecideCaseCommand,
 )
+from app.modules.moderation.application.use_cases.open_case import CaseOpener
 from app.modules.moderation.errors import CaseSupersededError
 from app.modules.specialists.api import SpecialistsApi
 from app.modules.specialists.application.portfolio_views import PortfolioViews
@@ -35,6 +43,8 @@ from app.modules.specialists.application.use_cases.caption_portfolio_work import
     CaptionPortfolioWorkCommand,
 )
 from app.modules.specialists.domain.portfolio import PortfolioItemId
+from app.platform.ai.port import Moderation
+from app.platform.audit.port import AuditLog
 from app.platform.contracts.events.moderation import ModerationDecision
 from app.platform.db.port import UnitOfWork
 from app.platform.kernel.ids import CaseId, MediaId, new_id
@@ -127,17 +137,35 @@ class Owner:
         assert profile is not None
         return [work.id for work in profile.works]
 
-    async def cases(self, work_id: UUID) -> list[dict[str, Any]]:
+    async def cases(self, entity_id: UUID, entity_type: str = "portfolio") -> list[dict[str, Any]]:
         engine = await self.container.get(AsyncEngine)
         async with engine.connect() as conn:
             rows = await conn.execute(
                 text(
                     "SELECT id, queue, status, trigger, evidence, media_ids FROM moderation.cases"
-                    " WHERE entity_type = 'portfolio' AND entity_id = :id"
+                    " WHERE entity_type = :type AND entity_id = :id"
                 ),
-                {"id": work_id},
+                {"id": entity_id, "type": entity_type},
             )
             return [dict(row._mapping) for row in rows]
+
+    async def photo_unchecked(self, media_id: MediaId) -> None:
+        """Проверка фото так и не состоялась (без ключа AI — так же): фото ждёт человека, как
+        пишет его `moderation.check_image`."""
+        async with self.container() as request:
+            check = CheckImage(
+                await request.get(UnitOfWork),
+                cast(MediaApi, await request.get(MediaModeration)),
+                cast(Moderation, object()),  # провайдер не зовётся
+                await request.get(CaseOpener),
+                await request.get(AutoCheckMetrics),
+                await request.get(AuditLog),
+                await request.get(SpecialistsApi),
+            )
+            command = CheckImageCommand(
+                media_id=media_id, owner_id=self.specialist.user_id, purpose="portfolio"
+            )
+            assert await check.give_up(command) is not None
 
     async def decide(self, case_id: UUID, verdict: ModerationDecision) -> None:
         async with self.container() as request:
@@ -212,22 +240,72 @@ async def test_flagged_caption_opens_p2_case_and_moderator_decides(
     assert await owner.public() == [kept]
 
 
-async def test_portfolio_of_a_new_profile_goes_to_a_human(worker: AsyncContainer) -> None:
+async def test_portfolio_of_a_new_profile_waits_in_the_profile_case(
+    worker: AsyncContainer,
+) -> None:
+    """B5, Q34: новый профиль на проверке — его работы не открывают своих кейсов ни по подписи,
+    ни по фото без ключа AI: поводы с фото — в кейсе профиля. «Одобрить профиль» публикует и
+    профиль, и работы, а фото считает проверенным."""
     owner = Owner(worker)
     await owner.ready()
-    await owner.specialist.execute(  # профиль ещё ни разу не публиковался
-        "UPDATE specialists.profiles SET published_at = NULL WHERE id = :id",
-        id=owner.specialist.profile_id,
+    profile_id = owner.specialist.profile_id
+    await owner.specialist.execute(  # профиль ещё ни разу не публиковался и ждёт проверки
+        "UPDATE specialists.profiles SET status = 'pending_review', published_at = NULL"
+        " WHERE id = :id",
+        id=profile_id,
     )
     work_id, media_id = await owner.work("Люстра в гостиной")
 
-    assert await owner.photo_checked(media_id, ModerationVerdict.APPROVED) == 1
-    assert await owner.auto_check() == 2
+    assert await owner.auto_check() == 1  # подпись — сразу, не дожидаясь фото
+    await owner.photo_unchecked(media_id)
 
-    [case] = await owner.cases(work_id)
+    assert await owner.cases(work_id) == []
+    assert await owner.cases(media_id, "media") == []
+    [case] = await owner.cases(profile_id, "profile")
     assert (case["queue"], case["status"]) == ("premod", "pending")
-    assert case["evidence"][0]["signals"] == ["always_review"]
+    assert case["media_ids"] == [media_id]
+    assert [entry.get("work_id") for entry in case["evidence"]] == [str(work_id)] * 2
     assert await owner.statuses() == {work_id: "pending"}
+
+    await owner.decide(case["id"], ModerationDecision.APPROVED)
+
+    assert await owner.statuses() == {work_id: "published"}
+    assert await owner.public() == [work_id]
+    async with worker() as request:
+        uow, media = await request.get(UnitOfWork), await request.get(MediaModeration)
+        async with uow:
+            assert await media.verdict(media_id) is ModerationVerdict.APPROVED
+
+
+async def test_portfolio_of_a_draft_profile_is_checked_with_the_profile(
+    worker: AsyncContainer,
+) -> None:
+    """Работа черновика своего кейса не открывает: её подпись и фото войдут в проверку профиля,
+    когда его отправят (B5)."""
+    owner = Owner(worker)
+    await owner.ready()
+    profile_id = owner.specialist.profile_id
+    await owner.specialist.execute(
+        "UPDATE specialists.profiles SET status = 'draft', published_at = NULL WHERE id = :id",
+        id=profile_id,
+    )
+    work_id, media_id = await owner.work(PHONE)
+
+    assert await owner.auto_check() == 1
+    await owner.photo_unchecked(media_id)
+
+    assert await owner.cases(work_id) == []
+    assert await owner.cases(media_id, "media") == []
+    assert await owner.cases(profile_id, "profile") == []
+    await owner.specialist.execute(
+        "UPDATE specialists.profiles SET status = 'pending_review' WHERE id = :id",
+        id=profile_id,
+    )
+    async with worker() as request:
+        review = await (await request.get(SpecialistsApi)).profile_for_review(profile_id)
+    assert review is not None
+    assert PHONE in review.text  # подпись — в тексте проверки профиля, фото — доказательство
+    assert review.media_ids == (media_id,)
 
 
 async def test_caption_edited_after_the_card_needs_a_new_decision(worker: AsyncContainer) -> None:

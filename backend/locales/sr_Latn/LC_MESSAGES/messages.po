@@ -1547,6 +1547,9 @@ msgstr "Kada može"
 msgid "bot.moderation.field.prices"
 msgstr "Cenovnik"
 
+msgid "bot.moderation.field.works"
+msgstr "Radovi na proveri"
+
 msgid "bot.moderation.why.report"
 msgstr "prijava: {reason}"
 

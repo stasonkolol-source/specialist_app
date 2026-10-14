@@ -182,7 +182,7 @@ class ModerationProvider(Provider):
             {
                 EntityType.MEDIA: MediaTarget(media, specialists),
                 EntityType.PORTFOLIO: PortfolioTarget(uow, specialists, media),
-                EntityType.PROFILE: ProfileTarget(specialists, pricing),
+                EntityType.PROFILE: ProfileTarget(specialists, pricing, media),
                 EntityType.JOB: JobTarget(jobs),
                 EntityType.RESPONSE: ResponseTarget(jobs),
                 EntityType.MESSAGE: MessageTarget(messaging),

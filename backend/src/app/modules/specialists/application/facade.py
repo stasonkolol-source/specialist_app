@@ -21,6 +21,7 @@ from app.modules.specialists.api import (
     PublicCard,
     PublicProfile,
     SpecialistsApi,
+    WaitingWork,
     WorkForReview,
 )
 from app.modules.specialists.application.ports import (
@@ -30,7 +31,7 @@ from app.modules.specialists.application.ports import (
     ProfileRepository,
 )
 from app.modules.specialists.application.profiles import request_work_review
-from app.modules.specialists.domain.portfolio import WorkStatus
+from app.modules.specialists.domain.portfolio import PortfolioItem, WorkStatus
 from app.modules.specialists.domain.profile import ProfileId, ProfileStatus
 from app.modules.specialists.errors import ProfileNotFoundError
 from app.platform.db.port import UnitOfWork
@@ -131,8 +132,21 @@ class SpecialistsFacade(SpecialistsApi):
         if profile.status not in REVIEWABLE:
             return None
         categories = await self._catalog.categories(profile.category_ids)
+        # работы нового профиля проверяет тот же модератор в кейсе профиля (B5)
+        waiting = (
+            await self._waiting(profile.id)
+            if profile.first_review and profile.published_at is None
+            else []
+        )
         text = "\n".join(
-            part for part in (profile.display_name, profile.headline, profile.about) if part
+            part
+            for part in (
+                profile.display_name,
+                profile.headline,
+                profile.about,
+                *(item.caption for item in waiting),
+            )
+            if part
         )
         return ProfileForReview(
             user_id=profile.user_id,
@@ -140,16 +154,33 @@ class SpecialistsFacade(SpecialistsApi):
             version=profile.revision,
             first_review=profile.first_review,
             risk_level=max((int(c.risk_level) for c in categories), default=0),
+            media_ids=tuple(item.media_id for item in waiting),
         )
 
-    async def approve_profile(self, profile_id: UUID, *, version: int | None) -> None:
+    async def approve_profile(self, profile_id: UUID, *, version: int | None) -> bool:
         self._uow.require_active()
         try:
             profile = await self._profiles.get_for_update(ProfileId(profile_id))
         except ProfileNotFoundError:
-            return
-        if profile.approve(now=self._clock.now(), version=version):
-            await self._profiles.save(profile)
+            return False
+        if not profile.approve(now=self._clock.now(), version=version):
+            return False
+        await self._profiles.save(profile)
+        return True
+
+    async def waiting_works(self, profile_id: UUID) -> list[WaitingWork]:
+        found = await self._query.for_index([profile_id])
+        if not found or found[0].published_at is not None:
+            return []
+        return [
+            WaitingWork(
+                id=item.id, media_id=item.media_id, caption=item.caption, revision=item.revision
+            )
+            for item in await self._waiting(profile_id)
+        ]
+
+    async def _waiting(self, profile_id: UUID) -> list[PortfolioItem]:
+        return [item for item in await self._portfolio.of_profile(profile_id) if item.pending]
 
     async def reject_profile(self, profile_id: UUID, *, reason_code: str) -> None:
         self._uow.require_active()
@@ -177,6 +208,8 @@ class SpecialistsFacade(SpecialistsApi):
             pending=item.pending,
             new_profile=profile.published_at is None,
             risk_level=max((int(c.risk_level) for c in categories), default=0),
+            profile_id=profile.id,
+            profile_status=profile.status,
         )
 
     async def approve_work(
