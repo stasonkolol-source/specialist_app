@@ -91,7 +91,7 @@ describe('S08 profile', () => {
     expect(screen.getByText('Лиман')).toBeTruthy();
     expect(screen.getByText('Телефон подтверждён')).toBeTruthy();
     expect(screen.getByText(/^Сегодня до /)).toBeTruthy();
-    expect(screen.getByText(/Не вносите предоплату незнакомым исполнителям/)).toBeTruthy();
+    expect(screen.getByText(/^На «Соседях» платят лично, когда работа сделана\./)).toBeTruthy();
 
     const prices = within(screen.getByRole('region', { name: 'Цены' }));
     expect(prices.getByText('Установка люстры')).toBeTruthy();

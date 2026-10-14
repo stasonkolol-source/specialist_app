@@ -4,7 +4,7 @@
 import type { FormEvent, KeyboardEvent, ReactNode } from 'react';
 import { useId, useLayoutEffect, useRef } from 'react';
 
-import { cx } from './cx.ts';
+import { FOCUS, cx } from './cx.ts';
 import type { IconName } from './icon/Icon.tsx';
 import { Icon } from './icon/Icon.tsx';
 
@@ -87,11 +87,51 @@ export function Bubble({ side, children, time, status, failed = false, onRetry }
 
 /** Системная строка по центру ленты (.sysmsg): контекст диалога, что со сделкой, подсказки.
  *  Радиус — токеном: стандартные имена Tailwind (rounded-xl) в проекте дают 0. */
-export function SystemNote({ children, icon }: { children: ReactNode; icon?: IconName }) {
+/** Действие в системной строке — текстовой кнопкой через « · »: «Просят предоплату? … · Пожаловаться». */
+export interface SystemNoteAction {
+  label: string;
+  onClick: () => void;
+  disabled?: boolean;
+}
+
+export function SystemNote({
+  children,
+  icon,
+  action,
+  role,
+}: {
+  children: ReactNode;
+  icon?: IconName;
+  action?: SystemNoteAction;
+  role?: 'status' | 'alert';
+}) {
   return (
-    <p className="m-0 flex max-w-[92%] items-center gap-1.5 self-center rounded-photo bg-surface px-3 py-1.5 text-center text-[13px] leading-[18px] text-text2">
+    <p
+      role={role}
+      className="m-0 flex max-w-[92%] items-center gap-1.5 self-center rounded-photo bg-surface px-3 py-1.5 text-center text-[13px] leading-[18px] text-text2"
+    >
       {icon && <Icon name={icon} size={16} />}
-      <span>{children}</span>
+      <span>
+        {children}
+        {action && (
+          <>
+            {' · '}
+            <button
+              type="button"
+              onClick={action.onClick}
+              disabled={action.disabled}
+              aria-busy={action.disabled}
+              className={cx(
+                'inline border-0 bg-transparent p-0 font-semibold text-accent disabled:text-text2',
+                'press',
+                FOCUS,
+              )}
+            >
+              {action.label}
+            </button>
+          </>
+        )}
+      </span>
     </p>
   );
 }

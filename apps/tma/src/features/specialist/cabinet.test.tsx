@@ -1,6 +1,7 @@
 // Кабинет специалиста S33 и правка профиля S34 (DEVELOPMENT_PLAN 2.10) на фейке backend кабинета:
 // статус и полнота, продолжение черновика, правка только изменённого, районы, проверки полей.
 import { setSession } from '@sosed/api-client';
+import { getNotificationsGetNotificationSettingsMockHandler } from '@sosed/api-client/mocks';
 import { act, fireEvent, screen, waitFor } from '@testing-library/react';
 import { HttpResponse, http } from 'msw';
 import { afterEach, describe, expect, it, vi } from 'vitest';
@@ -9,8 +10,10 @@ import { mainButton, pressMainButton, startApp } from '../../testing/app.tsx';
 import {
   DISTRICT_IDS,
   FIRST_SERVICE,
+  NOTIFICATION_SETTINGS,
   PROFILE_DRAFT,
   PROFILE_FILLED,
+  WRITE_ACCESS,
 } from '../../testing/fixtures.ts';
 import { JobsBackend, alertsFixture, templatesFixture } from '../../testing/jobsBackend.ts';
 import { jobsHandlers, profileHandlers, server } from '../../testing/msw.ts';
@@ -32,7 +35,16 @@ const click = (element: HTMLElement) =>
   });
 
 const PUBLISHED = { ...PROFILE_FILLED, status: 'published' as const };
-const PENDING = 'Профиль на проверке, обычно до 30 минут — бот напишет, когда опубликуем';
+const PENDING = 'Профиль на проверке, обычно до 30 минут';
+const PENDING_BOT = `${PENDING} — бот напишет, когда опубликуем`;
+/** Канал бота открыт (по умолчанию в фикстурах его нет). */
+const botWritable = () =>
+  server.use(
+    getNotificationsGetNotificationSettingsMockHandler({
+      ...NOTIFICATION_SETTINGS,
+      telegram: WRITE_ACCESS,
+    }),
+  );
 
 describe('S33 cabinet', () => {
   it('shows the status, how complete the profile is and what to add first', async () => {
@@ -117,12 +129,14 @@ describe('S33 cabinet', () => {
 
   // UX №7: после отправки — срок, «бот напишет» и одно действие на время ожидания
   it('on review: tells how long and who writes, the MainButton adds work photos', async () => {
+    botWritable();
     withBackend(
       new ProfileBackend({ ...PROFILE_FILLED, status: 'pending_review' }, [FIRST_SERVICE]),
     );
     const { app, telegram } = startApp('/cabinet');
 
-    expect(await screen.findByText(PENDING)).toBeTruthy();
+    expect(await screen.findByText(PENDING_BOT)).toBeTruthy();
+    expect(screen.queryByRole('button', { name: 'Разрешить сообщения' })).toBeNull();
     await waitFor(() =>
       expect(mainButton(telegram)).toMatchObject({
         is_visible: true,
@@ -131,6 +145,78 @@ describe('S33 cabinet', () => {
     );
     await pressMainButton(telegram);
     await waitFor(() => expect(app.router.state.location.pathname).toBe('/cabinet/portfolio'));
+  });
+
+  // бот не пишет первым (ADR-0011): без канала «бот напишет» — неправда; вместо него — как открыть
+  it('on review without the bot channel: no promise, asks to allow messages', async () => {
+    withBackend(
+      new ProfileBackend({ ...PROFILE_FILLED, status: 'pending_review' }, [FIRST_SERVICE]),
+    );
+    const { telegram } = startApp('/cabinet');
+
+    expect(await screen.findByText(PENDING)).toBeTruthy();
+    expect(
+      await screen.findByText('Чтобы бот написал, когда профиль проверят, разрешите ему сообщения'),
+    ).toBeTruthy();
+    expect(screen.queryByText(PENDING_BOT)).toBeNull();
+    // имени бота в сборке нет — ссылки на чат нет
+    expect(screen.queryByRole('button', { name: /^Открыть @/ })).toBeNull();
+
+    await click(screen.getByRole('button', { name: 'Разрешить сообщения' }));
+
+    expect(await screen.findByText('Готово: бот напишет вам в Telegram')).toBeTruthy();
+    expect(await screen.findByText(PENDING_BOT)).toBeTruthy();
+    expect(telegram.callsOf('web_app_request_write_access')).toHaveLength(1);
+    expect(screen.queryByRole('button', { name: 'Разрешить сообщения' })).toBeNull();
+  });
+
+  it('names the bot and opens its chat when the build knows it; a refusal is said plainly', async () => {
+    vi.stubEnv('VITE_TELEGRAM_BOT', 'sosed_bot');
+    try {
+      withBackend(
+        new ProfileBackend({ ...PROFILE_FILLED, status: 'pending_review' }, [FIRST_SERVICE]),
+      );
+      const { telegram } = startApp('/cabinet', { writeAccess: false });
+
+      expect(
+        await screen.findByText(
+          'Чтобы бот написал, когда профиль проверят, откройте @sosed_bot и нажмите «Старт»',
+        ),
+      ).toBeTruthy();
+      await click(screen.getByRole('button', { name: 'Открыть @sosed_bot' }));
+      expect(telegram.callsOf('web_app_open_tg_link').at(-1)).toMatchObject({
+        path_full: '/sosed_bot',
+      });
+
+      await click(screen.getByRole('button', { name: 'Разрешить сообщения' }));
+      expect(await screen.findByRole('alert')).toBeTruthy();
+      expect(screen.getByText(/^Без разрешения бот писать не сможет/)).toBeTruthy();
+      expect(screen.getByText(PENDING)).toBeTruthy();
+    } finally {
+      vi.unstubAllEnvs();
+    }
+  });
+
+  it('published without the bot channel: how to get jobs and messages in Telegram', async () => {
+    withBackend(new ProfileBackend(PUBLISHED, [FIRST_SERVICE]));
+    startApp('/cabinet');
+
+    expect(await screen.findByText('Профиль опубликован и виден в поиске')).toBeTruthy();
+    expect(
+      await screen.findByText(
+        'Чтобы бот писал о заявках, откликах и сообщениях, разрешите ему сообщения',
+      ),
+    ).toBeTruthy();
+  });
+
+  it('does not read the bot channel for a draft', async () => {
+    const settings = vi.fn(() => HttpResponse.json(NOTIFICATION_SETTINGS));
+    server.use(http.get('*/api/v1/me/notification-settings', settings));
+    withBackend(new ProfileBackend({ ...PROFILE_FILLED, headline: null }, [FIRST_SERVICE]));
+    startApp('/cabinet');
+
+    expect(await screen.findByText('Черновик, осталось несколько шагов')).toBeTruthy();
+    expect(settings).not.toHaveBeenCalled();
   });
 
   // UX №7: причина отказа — на экране, а не «в уведомлении»; «Исправить» — в мастер

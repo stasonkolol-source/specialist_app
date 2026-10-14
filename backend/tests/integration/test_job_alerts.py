@@ -20,7 +20,17 @@ from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncEngine, AsyncSession
 
 from app.entrypoints._wiring import module_routers
+from app.modules.jobs.application.alerts import INSTANT_PER_HOUR
 from app.modules.jobs.application.ports import AlertMatches
+from app.modules.jobs.application.use_cases.catch_up_alert import (
+    CatchUpAlert,
+    CatchUpAlertCommand,
+)
+from app.modules.jobs.application.use_cases.create_profile_alert import (
+    CreateProfileAlert,
+    CreateProfileAlertCommand,
+)
+from app.modules.jobs.application.use_cases.extend_job import ExtendJob, ExtendJobCommand
 from app.modules.jobs.application.use_cases.forget_alerts import (
     ForgetAlerts,
     ForgetAlertsCommand,
@@ -30,6 +40,7 @@ from app.modules.jobs.application.use_cases.send_alert_digests import (
     SendAlertDigests,
     SendAlertDigestsCommand,
 )
+from app.modules.jobs.domain.alert import AlertId
 from app.modules.jobs.domain.job import JobId
 from app.modules.specialists.application.use_cases.remind_stale_profiles import (
     RemindStaleProfiles,
@@ -44,6 +55,7 @@ from tests.integration.test_responses import API, World
 from tests.plugins.http import HttpApp, http_app
 from tests.plugins.identity import insert_restriction
 from tests.plugins.queue import run_queued
+from tests.plugins.search import Specialist
 
 pytestmark = pytest.mark.integration
 
@@ -557,3 +569,138 @@ async def test_stale_profile_is_reminded_once_in_two_weeks(world: Alerts) -> Non
         id=stale,
     )
     assert notice["payload"]["link"] == "m_availability"
+
+
+async def test_republished_job_reaches_only_new_subscribers(world: Alerts) -> None:
+    """Продление истёкшей заявки — снова JobPublished (`republished`): подписавшийся после первой
+    публикации получает карточку, кто получал — второй не получает."""
+    ids = await world.ids()
+    client = await world.user("Елена")
+    base = {"city_id": ids["city"], "category_ids": [ids["section"]]}
+    early, late = await world.user("early"), await world.user("late")
+    await world.created(early, **base)
+    job_id = await world.job(client)
+    assert await world.match(job_id) == 1
+
+    await world.created(late, **base)
+    await world.execute("UPDATE jobs.jobs SET status = 'expired' WHERE id = :id", id=job_id)
+    async with world.app.container() as request:
+        extend = await request.get(ExtendJob)
+        await extend(ExtendJobCommand(actor_id=client, job_id=JobId(job_id)))
+    assert (
+        await run_queued(world.app.container, "jobs.match_alerts", user_id=client, by="client_id")
+        == 1
+    )
+
+    assert set(await world.matched(job_id)) == {str(early), str(late)}
+    assert (
+        await world.scalar("SELECT count(*) FROM jobs.alert_matches WHERE job_id = :id", id=job_id)
+        == 2
+    )
+    assert await world.scalar("SELECT notified_count FROM jobs.jobs WHERE id = :id", id=job_id) == 2
+
+
+async def test_new_alert_catches_up_open_jobs_of_the_last_days(world: Alerts) -> None:
+    """Досыл новой подписке: открытые заявки последних трёх суток — карточками в лимит частоты,
+    остальное в подборку; старше трёх суток, без мест, своя и заблокированного — нет."""
+    ids = await world.ids()
+    client, enemy, ana = (
+        await world.user("Елена"),
+        await world.user("Враг"),
+        await world.user("Ana"),
+    )
+    fresh = [await world.job(client) for _ in range(INSTANT_PER_HOUR + 2)]
+    old = await world.job(client)
+    await world.execute(
+        "UPDATE jobs.jobs SET published_at = now() - interval '4 days' WHERE id = :id", id=old
+    )
+    full = await world.job(client, max_responses=1)
+    await world.execute("UPDATE jobs.jobs SET responses_count = 1 WHERE id = :id", id=full)
+    blocked = await world.job(enemy)
+    await world.execute(
+        "INSERT INTO identity.user_blocks (blocker_id, blocked_id) VALUES (:a, :b)", a=ana, b=enemy
+    )
+    own = await world.job(ana)
+
+    body = await world.created(ana, city_id=ids["city"], category_ids=[ids["section"]])
+    assert await run_queued(world.app.container, "jobs.catch_up_alert", user_id=ana) == 1
+
+    rows = await world.rows(
+        "SELECT job_id, delivery FROM jobs.alert_matches WHERE user_id = :id", id=ana
+    )
+    by_job = {row["job_id"]: row["delivery"] for row in rows}
+    # данные тестов коммитятся: подошли и свежие заявки соседних тестов — это не ошибка
+    assert set(fresh) <= set(by_job)
+    assert not {old, full, blocked, own} & set(by_job)
+    instant = {job_id for job_id, delivery in by_job.items() if delivery == "instant"}
+    assert len(instant) == INSTANT_PER_HOUR
+    assert len(by_job) - len(instant) >= 2
+    cards = await world.rows(
+        "SELECT args->'payload'->>'job_id' AS job_id FROM procrastinate_jobs"
+        " WHERE task_name = :task AND args->'payload'->>'user_id' = :user",
+        task=MATCHED,
+        user=str(ana),
+    )
+    assert {row["job_id"] for row in cards} == {str(job_id) for job_id in instant}
+    assert (
+        await world.scalar("SELECT notified_count FROM jobs.jobs WHERE id = :id", id=fresh[0]) == 1
+    )
+    async with world.app.container() as request:  # повтор задачи — ничего нового
+        catch_up = await request.get(CatchUpAlert)
+        assert await catch_up(CatchUpAlertCommand(alert_id=AlertId(UUID(body["id"])))) == 0
+
+
+async def test_published_profile_gets_an_alert_once(world: Alerts) -> None:
+    """Первая публикация профиля — подписка по его категориям и районам, без своих действий
+    исполнителя; за ней — досыл; повтор публикации и свои подписки — ничего."""
+    specialist = Specialist(world.app.container)
+    await specialist.publish()
+    world.users.append(specialist.user_id)
+    client = await world.user("Елена")
+    job_id = await world.job(client)
+    # заявка по услуге и в районе профиля: её досыл подтвердит, что подписка — по профилю
+    await world.execute(
+        "UPDATE jobs.jobs SET category_id = :category, district_id = :district,"
+        " category_path = (SELECT path FROM catalog.categories WHERE id = :category)"
+        " WHERE id = :id",
+        id=job_id,
+        category=specialist.category,
+        district=specialist.district,
+    )
+
+    assert (
+        await run_queued(
+            world.app.container, "jobs.create_profile_alert", user_id=specialist.user_id
+        )
+        == 1
+    )
+
+    listed = await world.app.client.get(
+        f"{API}/me/job-alerts", headers=world.headers(specialist.user_id)
+    )
+    [alert] = listed.json()["items"]
+    assert alert["delivery"] == "instant"
+    assert alert["is_active"] is True
+    assert alert["criteria"]["category_ids"] == [specialist.category]
+    assert alert["criteria"]["city_id"] == specialist.city
+    assert alert["criteria"]["district_ids"] == [specialist.district]
+    assert alert["criteria"]["min_budget"] is None
+    assert (
+        await run_queued(world.app.container, "jobs.catch_up_alert", user_id=specialist.user_id)
+        == 1
+    )
+    assert str(specialist.user_id) in await world.matched(job_id)
+
+    async with world.app.container() as request:  # повторная публикация профиля
+        create = await request.get(CreateProfileAlert)
+        again = await create(
+            CreateProfileAlertCommand(user_id=specialist.user_id, profile_id=specialist.profile_id)
+        )
+    assert again is None
+    assert (
+        await world.scalar(
+            "SELECT count(*) FROM jobs.alerts WHERE user_id = :id", id=specialist.user_id
+        )
+        == 1
+    )
+    await specialist.drop_jobs()

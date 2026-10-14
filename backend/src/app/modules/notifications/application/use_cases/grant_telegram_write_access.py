@@ -1,7 +1,8 @@
 """Пользователь разрешил боту писать (ARCHITECTURE §11.1, ADR-0011, DEVELOPMENT_PLAN 1.4b).
 
-Два входа: `POST /me/telegram/write-access` (Mini App после успешного `requestWriteAccess`)
-и подписчик `BotStarted` (`/start` в боте). Адрес — личный чат с ботом: его chat_id даёт
+Три входа: `POST /me/telegram/write-access` (Mini App после успешного `requestWriteAccess`),
+подписчик `BotStarted` (`/start` в боте) и подписчик `TelegramWriteAllowed` (initData входа
+Mini App с `allows_write_to_pm`). Адрес — личный чат с ботом: его chat_id даёт
 фасад identity (Telegram id живёт там). Повтор идемпотентен. Когда писать стало можно
 (канал создан или включён снова) — `WriteAccessGranted` (аналитика, 1.7).
 """

@@ -1,6 +1,6 @@
 """Use cases identity на PostgreSQL в откатываемой транзакции (DEVELOPMENT_PLAN 0.15a)."""
 
-from datetime import timedelta
+from datetime import datetime, timedelta
 from uuid import UUID
 
 import procrastinate
@@ -26,7 +26,7 @@ from app.modules.identity.infrastructure.repositories import (
     SqlSessionRepository,
     SqlUserRepository,
 )
-from app.platform.contracts.events.identity import UserRegistered
+from app.platform.contracts.events.identity import TelegramWriteAllowed, UserRegistered
 from app.platform.db.platform_tables import audit_log
 from app.platform.kernel.errors import RestrictedError
 from app.platform.kernel.ids import UserId, new_id
@@ -124,6 +124,56 @@ async def test_registration_event_reaches_subscribers_in_same_transaction(
         .all()
     )
     assert rows == [str(result.tokens.user_id)]
+
+
+async def test_login_with_write_permission_tells_subscribers_each_time(
+    identity: Identity, procrastinate_app: procrastinate.App
+) -> None:
+    """`allows_write_to_pm` проверенного initData — событие на каждом входе (новом и повторном):
+    подписчик идемпотентен, а канал мог быть выключен между входами. Без флага события нет.
+    `occurred_at` — `auth_date` initData, а не время обработки."""
+    on_allowed = TaskRef("test.on_write_allowed", TelegramWriteAllowed)
+    registry = EventRegistry()
+    registry.subscribe(TelegramWriteAllowed, on_allowed)
+    uow = make_uow(identity.session, procrastinate_app, registry)
+    authenticate = AuthenticateTelegram(
+        uow,
+        SqlUserRepository(identity.session, uow),
+        SqlSessionRepository(identity.session, uow),
+        identity.query,
+        identity.deleted,
+        identity.tokens,
+        CONFIG,
+        identity.clock,
+        identity.access,
+    )
+    signed = identity.clock.now() - timedelta(minutes=10)
+    allowed = telegram_profile(allows_write_to_pm=True)
+    result = await authenticate(
+        AuthenticateTelegramCommand(profile=allowed, start_param=None, auth_date=signed)
+    )
+    await authenticate(AuthenticateTelegramCommand(profile=allowed))
+    await authenticate(
+        AuthenticateTelegramCommand(profile=telegram_profile(allows_write_to_pm=False))
+    )
+
+    rows = (
+        (
+            await identity.session.execute(
+                text(
+                    "SELECT args->'payload'->>'user_id', args->'payload'->>'occurred_at'"
+                    " FROM procrastinate_jobs WHERE task_name = :name ORDER BY id"
+                ),
+                {"name": on_allowed.name},
+            )
+        )
+        .tuples()
+        .all()
+    )
+    user_id = str(result.tokens.user_id)
+    assert [row[0] for row in rows] == [user_id, user_id]
+    assert datetime.fromisoformat(rows[0][1]) == signed
+    assert datetime.fromisoformat(rows[1][1]) == identity.clock.now()
 
 
 async def test_second_login_reuses_account_and_updates_profile(identity: Identity) -> None:

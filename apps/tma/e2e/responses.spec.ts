@@ -6,7 +6,7 @@
 import type { Page } from '@playwright/test';
 import { expect, test } from '@playwright/test';
 
-import { E2E_NOW, ME } from '../src/testing/fixtures.ts';
+import { E2E_NOW, ME, NOTIFICATION_SETTINGS, WRITE_ACCESS } from '../src/testing/fixtures.ts';
 import {
   FEED_JOBS,
   JobsBackend,
@@ -70,6 +70,8 @@ for (const theme of THEMES) {
       const watch = await open(page, `theme=${theme}&lang=${l.telegram}`, {
         signedIn: true,
         me: { ...ME, intent: 'pro', ui_locale: l.locale },
+        // исполнитель откликается по карточке из бота — канал открыт, обещание «бот напишет» честное
+        notificationSettings: { ...NOTIFICATION_SETTINGS, telegram: WRITE_ACCESS },
         jobs,
       });
 

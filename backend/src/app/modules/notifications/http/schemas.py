@@ -36,7 +36,8 @@ class TelegramChannelOut(BaseModel):
     writable: bool
     """Бот может писать пользователю; false — бот заблокирован (шаг 2.3)."""
     granted_via: GrantedVia
-    """Как получено разрешение: `bot_start` — /start в боте, `mini_app` — requestWriteAccess."""
+    """Как получено разрешение: `bot_start` — /start в боте, `mini_app` — requestWriteAccess или
+    `allows_write_to_pm` в initData входа."""
     granted_at: datetime
 
     @classmethod

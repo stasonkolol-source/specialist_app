@@ -121,7 +121,8 @@
     "state": {
       "published": "Profil je objavljen i vidljiv u pretrazi",
       "publishedUnlisted": "Profil je objavljen, ali se ne prikazuje u katalogu",
-      "pending_review": "Profil je na proveri, obično do 30 minuta — bot će vam javiti kada ga objavimo",
+      "pending_review": "Profil je na proveri, obično do 30 minuta",
+      "pending_review_bot": "Profil je na proveri, obično do 30 minuta — bot će vam javiti kada ga objavimo",
       "draft": "Nacrt, ostalo je još nekoliko koraka",
       "rejected": "Potrebne su ispravke: {reason}",
       "hidden": "Profil je skriven, klijenti ga ne vide",
@@ -130,6 +131,16 @@
     "continue": "Nastavite popunjavanje",
     "fix": "Ispravite",
     "addPhotos": "Dodajte fotografije radova",
+    "bot": {
+      "pending": "Da vam bot javi kada profil bude proveren, otvorite {bot} i pritisnite „Start“",
+      "pendingAllow": "Da vam bot javi kada profil bude proveren, dozvolite mu poruke",
+      "published": "Da vam bot javlja o zahtevima, ponudama i porukama, otvorite {bot} i pritisnite „Start“",
+      "publishedAllow": "Da vam bot javlja o zahtevima, ponudama i porukama, dozvolite mu poruke",
+      "open": "Otvori {bot}",
+      "allow": "Dozvoli poruke",
+      "on": "Gotovo: bot će vam pisati u Telegram",
+      "denied": "Bez dozvole bot ne može da piše — novosti će biti samo ovde, u aplikaciji"
+    },
     "reason": {
       "prepayment_scam": "traženje plaćanja unapred — čest trik prevaranta",
       "off_platform_payment": "predlog plaćanja ili prepiske mimo aplikacije „Sosedi“",

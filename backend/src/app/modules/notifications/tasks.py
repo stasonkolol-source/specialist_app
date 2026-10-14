@@ -4,6 +4,8 @@ notifications стоит над контентными модулями (ARCHITE
 публикуют события, а подписчики здесь решают, кому и что написать.
 
 - `notifications.grant_write_access` — BotStarted: /start разрешает боту писать.
+- `notifications.grant_write_access_from_init_data` — TelegramWriteAllowed: initData входа Mini App
+  говорит, что боту уже можно писать (`allows_write_to_pm`), — канал открыт без /start.
 - `notifications.notify_account_restricted` — UserRestricted: уведомление о санкции;
   теневой бан человеку не сообщается — на то он и теневой.
 - `notifications.notify_profile_published` — ProfilePublished одобренного модерацией профиля:
@@ -105,6 +107,7 @@ from app.modules.notifications.application.ports import (
     FINISH_BROADCAST,
     FORGET_RECIPIENT,
     GRANT_WRITE_ACCESS,
+    GRANT_WRITE_ACCESS_FROM_INIT_DATA,
     NOTIFY_ACCOUNT_RESTRICTED,
     NOTIFY_APPEAL_DECIDED,
     NOTIFY_DEAL_AGREED,
@@ -204,6 +207,7 @@ from app.platform.contracts.events.deals import (
 from app.platform.contracts.events.identity import (
     BotStarted,
     RestrictionKind,
+    TelegramWriteAllowed,
     UserDeleted,
     UserRestricted,
 )
@@ -296,6 +300,19 @@ async def grant_write_access(
     await grant(
         GrantTelegramWriteAccessCommand(
             user_id=event.user_id, via=GrantedVia.BOT_START, at=event.occurred_at
+        )
+    )
+
+
+@subscriber(TelegramWriteAllowed, GRANT_WRITE_ACCESS_FROM_INIT_DATA)
+async def grant_write_access_from_init_data(
+    event: TelegramWriteAllowed, grant: FromDishka[GrantTelegramWriteAccess]
+) -> None:
+    """initData входа подтвердил `allows_write_to_pm`: канал telegram открыт (или включён снова)
+    без /start и requestWriteAccess. Событие приходит на каждом входе — повтор ничего не меняет."""
+    await grant(
+        GrantTelegramWriteAccessCommand(
+            user_id=event.user_id, via=GrantedVia.MINI_APP, at=event.occurred_at
         )
     )
 

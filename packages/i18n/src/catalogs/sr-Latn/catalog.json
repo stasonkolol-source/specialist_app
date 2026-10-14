@@ -98,7 +98,7 @@
   "profile": {
     "title": "Profil stručnjaka",
     "reviews": "{count, plural, one {# utisak} few {# utiska} other {# utisaka}}",
-    "prepayment": "Ne uplaćujte avans nepoznatim izvođačima. Platite kada posao bude završen.",
+    "prepayment": "U aplikaciji „Sosedi“ plaća se lično, kad je posao završen. Avansa i uplata unapred nema — niti se traže, niti se daju.",
     "prices": "Cene",
     "allPrices": "Ceo cenovnik · {count}",
     "works": "Radovi",

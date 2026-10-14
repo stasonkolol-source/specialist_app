@@ -7,6 +7,7 @@ from typing import Final, Protocol
 from app.modules.jobs.application.alerts import (
     AlertCandidate,
     AlertMatch,
+    JobCandidate,
     PendingDigest,
     RecentCards,
 )
@@ -25,7 +26,8 @@ from app.modules.jobs.domain.response import ResponseId
 from app.modules.jobs.domain.template import ResponseTemplate, TemplateId
 from app.platform.contracts.events.deals import DealCancelled, DealCompleted
 from app.platform.contracts.events.identity import UserBlocked, UserDeleted
-from app.platform.contracts.events.jobs import JobPublished
+from app.platform.contracts.events.jobs import AlertCreated, JobPublished
+from app.platform.contracts.events.specialists import ProfilePublished
 from app.platform.kernel.ids import MediaId, UserId
 from app.platform.kernel.pagination import Page, PageRequest
 from app.platform.queue.port import TaskRef
@@ -264,6 +266,16 @@ class AlertMatches(Protocol):
         на паузе; подписки автора заявки — нет."""
         ...
 
+    async def recent_jobs(
+        self, alert_id: AlertId, *, since: datetime, until: datetime, now: datetime, limit: int
+    ) -> list[JobCandidate]:
+        """Досыл новой подписке: `limit` самых свежих публичных заявок, опубликованных в
+        [`since`, `until`] и подходящих подписке (SQL §9.6), — набор не зависит от того, что
+        с ними стало потом, поэтому повтор досыла видит тот же набор. Из него — только ещё
+        открытые (срок не вышел, места есть) и те, о которых подписчик не получал карточку или
+        подборку (по любой его подписке), свежие первыми."""
+        ...
+
     async def recent_cards(
         self, user_ids: Collection[UserId], now: datetime
     ) -> dict[UserId, RecentCards]:
@@ -409,7 +421,14 @@ REOPEN_JOB: Final = TaskRef("jobs.reopen_job", DealCancelled)
 COMPLETE_JOB: Final = TaskRef("jobs.complete_job", DealCompleted)
 """Сделка по отклику завершена — заявка завершена (6.1a)."""
 MATCH_ALERTS: Final = TaskRef("jobs.match_alerts", JobPublished)
-"""Заявка опубликована впервые — подписчикам B1 или подборка (5.7, §9.6)."""
+"""Заявка опубликована (и повторно — после продления, правки, отмены сделки) — подписчикам, кто её
+ещё не получал, B1 или подборка (5.7, §9.6)."""
+CATCH_UP_ALERT: Final = TaskRef("jobs.catch_up_alert", AlertCreated)
+"""Новая подписка — досыл открытых заявок последних трёх суток: карточками в лимит частоты,
+остальное подборкой."""
+CREATE_PROFILE_ALERT: Final = TaskRef("jobs.create_profile_alert", ProfilePublished)
+"""Профиль исполнителя одобрен и опубликован — подписка по его категориям и районам, если своих
+подписок у него ещё нет."""
 FORGET_ALERTS: Final = TaskRef("jobs.forget_alerts", UserDeleted)
 """Аккаунт удалён — его подписки и совпадения удаляются (§7.10)."""
 RELEASE_BLOCKED_RESPONSES: Final = TaskRef("jobs.release_blocked_responses", UserBlocked)

@@ -2949,7 +2949,8 @@ sequenceDiagram
 
 Бот не пишет первым. Разрешение получаем контекстно ([ADR-0011](adr/0011-telegram-bot-integration.md)):
 - `/start`;
-- `requestWriteAccess` после публикации заявки или создания подписки.
+- `requestWriteAccess` после публикации заявки, создания подписки или отправки профиля на проверку;
+- `allows_write_to_pm` проверенного initData при входе: разрешение дали раньше — identity публикует `TelegramWriteAllowed`, notifications открывает канал (идемпотентно, на каждом входе с флагом).
 
 Чекбокс write access при первом запуске есть только у direct-link Mini App, а у нас Main Mini App, поэтому на него не рассчитываем.
 

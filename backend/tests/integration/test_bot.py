@@ -196,7 +196,7 @@ async def test_help_says_support_contact_comes_later_until_owner_gives_it(
     reply = await harness.send(telegram_user(), "/help")
 
     assert "<b>Как это работает</b>" in reply.text
-    assert "Не вносите предоплату незнакомым" in reply.text
+    assert "Оплата — после работы, лично." in reply.text
     assert reply.text.endswith("Контакт поддержки скоро появится здесь.")
     assert reply.reply_markup is None
 

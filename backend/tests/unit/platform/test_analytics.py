@@ -608,6 +608,7 @@ async def test_alert_events_carry_no_criteria_values() -> None:
         "categories": 2,
         "has_budget": True,
         "urgent_only": False,
+        "auto": False,
     }
     assert (matched.name, matched.distinct_id) == ("job_matched_notified", client)
     assert matched.properties == {
