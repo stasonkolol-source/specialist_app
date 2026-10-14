@@ -140,7 +140,9 @@
     "titleDirect": "Zahtev je poslat",
     "textDirectPending": "Izvođač će ga dobiti posle provere — obično za nekoliko minuta.",
     "textDirectPublished": "Izvođač je obavešten.",
-    "inviteTitle": "Želite brže? Pozovite stručnjake"
+    "inviteTitle": "Želite brže? Pozovite stručnjake",
+    "shareTitle": "Podelite zahtev u ćaskanju vašeg kvarta",
+    "shareText": "Odgovarajućih stručnjaka u blizini još nema — u ćaskanju kvarta zahtev će se brže videti. Ponudu mogu poslati direktno iz Telegram-a."
   },
   "segments": {
     "label": "Odeljak zahteva",
@@ -401,6 +403,9 @@
     "noResponsesTitle": "Još nema ponuda",
     "noResponsesText": "Bot će vam javiti čim neko pošalje ponudu. Da bude brže, pozovite stručnjake.",
     "noResponsesApp": "Ponude će se pojaviti ovde. Da bude brže, pozovite stručnjake.",
+    "noResponsesShare": "Bot će vam javiti čim neko pošalje ponudu. Da bude brže, podelite zahtev u ćaskanju vašeg kvarta.",
+    "noResponsesShareApp": "Ponude će se pojaviti ovde. Da bude brže, podelite zahtev u ćaskanju vašeg kvarta.",
+    "notified": "{count, plural, one {Zahtev je stigao do # stručnjaka u blizini.} few {Zahtev je stigao do # stručnjaka u blizini.} other {Zahtev je stigao do # stručnjaka u blizini.}}",
     "reviews": "{count, plural, one {# utisak} few {# utiska} other {# utisaka}}",
     "first": "Prvi se javio",
     "phone": "Telefon potvrđen",
