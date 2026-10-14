@@ -13,6 +13,7 @@ from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncEngine, AsyncSession
 
 from app.entrypoints._wiring import make_worker_container
+from app.modules.identity.api import NameLooksLikeContactError
 from app.modules.moderation.application.use_cases.auto_check import AutoCheck, AutoCheckCommand
 from app.modules.moderation.application.use_cases.decide_case import (
     DecideCase,
@@ -23,6 +24,7 @@ from app.modules.moderation.domain.pipeline import Route
 from app.modules.moderation.errors import CaseSupersededError
 from app.modules.pricing.application.use_cases.add_service import AddService, AddServiceCommand
 from app.modules.pricing.domain.service import PriceType
+from app.modules.specialists.api import SpecialistsApi
 from app.modules.specialists.application.use_cases.create_profile import (
     CreateProfile,
     CreateProfileCommand,
@@ -45,6 +47,7 @@ from app.modules.specialists.application.use_cases.submit_profile import (
 )
 from app.modules.specialists.domain.profile import ProfileKind
 from app.platform.contracts.events.moderation import ModerationDecision
+from app.platform.db.port import UnitOfWork
 from app.platform.kernel.ids import CategoryId, CityId, DistrictId, UserId
 from app.platform.settings import Settings
 from tests.plugins.identity import accept_rules, insert_user
@@ -289,5 +292,31 @@ async def test_first_review_publishes_only_the_profile_the_moderator_saw(
             "ПОДМЕНА после карточки",
             "Пишите @qa_contact_test",
         )
+    finally:
+        await drop_jobs(container, user_id)
+
+
+async def published_profile(container: AsyncContainer) -> tuple[UserId, UUID]:
+    """Опубликованный профиль; его проверки из очереди убраны."""
+    user_id, profile_id = await submitted_profile(container)
+    async with container() as request:
+        uow, specialists = await request.get(UnitOfWork), await request.get(SpecialistsApi)
+        async with uow:
+            await specialists.approve_profile(profile_id, version=None)
+    await drop_jobs(container, user_id)
+    return user_id, profile_id
+
+
+async def test_profile_name_that_looks_like_a_contact_is_refused(
+    container: AsyncContainer,
+) -> None:
+    """B3: имя профиля видят до договорённости — ник и контакт в нём — 422 с причиной."""
+    user_id, _ = await published_profile(container)
+    try:
+        async with container() as request:
+            edit = await request.get(EditProfile)
+            with pytest.raises(NameLooksLikeContactError):
+                await edit(EditProfileCommand(actor_id=user_id, display_name="ivan_master99"))
+            await edit(EditProfileCommand(actor_id=user_id, display_name="Иван Петров"))
     finally:
         await drop_jobs(container, user_id)

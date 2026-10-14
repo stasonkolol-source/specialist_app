@@ -16,6 +16,7 @@ from app.platform.text.contact_masking import (
     find_prepayment,
     luhn_valid,
     mask_contacts,
+    name_looks_like_contact,
 )
 from app.platform.text.normalize import skeleton
 
@@ -700,3 +701,41 @@ def test_calibration_adversarial_input_is_linear(text: str) -> None:
     find_domains(text)
     find_prepayment(text + " 5 tysjac rublej" * 1_000)
     assert time.perf_counter() - started < 3.0
+
+
+@pytest.mark.parametrize(
+    ("name", "looks"),
+    [
+        # имена: кириллица, латиница с диакритикой, инициалы, одна цифра отдельно
+        ("Иван Петров", False),
+        ("Ana Petrović", False),
+        ("Đorđe Ljubiša", False),
+        ("Jovana M.", False),
+        ("A.Petrović", False),
+        ("Dr.Ivan", False),
+        ("Marko-Marković", False),
+        ("Анна-Мария", False),
+        ("Ivan 2", False),
+        ("Elektro Servis", False),
+        ("R2", False),
+        # контакт, ник, домен, ссылка на Telegram, пять цифр
+        ("ivan_99", True),
+        ("master2", True),
+        ("ivan.master", True),
+        ("majstor.rs", True),
+        ("t.me/ivan", True),
+        ("t . me", True),
+        ("Иван @ivan", True),
+        ("064 123 4567", True),
+        ("Иван 06412", True),
+        ("ivan@gmail.com", True),
+        ("Ivan (tg ivan_master)", True),
+        # двойники и полноширинные знаки сворачиваются
+        ("іvаn_mаstеr", True),
+        ("ＩＶＡＮ＿９９", True),
+    ],
+)
+def test_name_that_looks_like_a_contact(name: str, looks: bool) -> None:
+    """Имя аккаунта и профиля видят до договорённости (B3): контакт и ник в нём — мимо маскировки
+    переписки, поэтому правило строже, чем у текста."""
+    assert name_looks_like_contact(name) is looks

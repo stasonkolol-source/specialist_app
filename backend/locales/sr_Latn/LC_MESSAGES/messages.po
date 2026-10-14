@@ -372,6 +372,9 @@ msgstr "Zahtev za brisanje naloga se već obrađuje. Pokušajte ponovo."
 msgid "errors.invalid_display_name"
 msgstr "Ime ne može biti prazno."
 
+msgid "errors.name_looks_like_contact"
+msgstr "Ime liči na kontakt ili korisničko ime. Unesite samo ime — kontakti se otvaraju nakon dogovora."
+
 msgid "errors.consent_required"
 msgstr "Da biste nastavili, prihvatite pravila platforme i politiku privatnosti."
 

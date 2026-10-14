@@ -371,6 +371,9 @@ msgstr "Захтев за брисање налога се већ обрађуј
 msgid "errors.invalid_display_name"
 msgstr "Име не може бити празно."
 
+msgid "errors.name_looks_like_contact"
+msgstr "Име личи на контакт или корисничко име. Унесите само име — контакти се отварају након договора."
+
 msgid "errors.consent_required"
 msgstr "Да бисте наставили, прихватите правила платформе и политику приватности."
 

@@ -49,6 +49,9 @@ class UserRegistered(DomainEvent):
     `reregistered` — тот же Telegram-аккаунт удалял аккаунт в последние 12 месяцев (хэш в
     `deleted_identity_hashes`, 2.12): модерация пишет сигнал риска, данные не возвращаются.
     `had_sanctions` — у удалённого аккаунта были санкции. Поля аддитивные, с 2.12.
+
+    `contact_in_name` — имя из Telegram похоже на контакт или ник и заменено на «Сосед»:
+    модерация пишет сигнал риска (B3). Поле аддитивное.
     """
 
     event_type = "identity.UserRegistered"
@@ -58,6 +61,7 @@ class UserRegistered(DomainEvent):
     start_param: str | None = None
     reregistered: bool = False
     had_sanctions: bool = False
+    contact_in_name: bool = False
 
 
 @dataclass(frozen=True, slots=True, kw_only=True)

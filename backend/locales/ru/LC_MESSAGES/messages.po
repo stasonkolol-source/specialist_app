@@ -371,6 +371,9 @@ msgstr "Запрос на удаление уже обрабатывается. 
 msgid "errors.invalid_display_name"
 msgstr "Имя не может быть пустым."
 
+msgid "errors.name_looks_like_contact"
+msgstr "Имя похоже на контакт или ник. Укажите только имя — контакты откроются после договорённости."
+
 msgid "errors.consent_required"
 msgstr "Чтобы продолжить, примите правила площадки и политику конфиденциальности."
 

@@ -295,6 +295,25 @@ async def test_registering_again_after_deletion_is_a_risk_signal(moderation: Mod
     assert rows == [(returned, 1.0), (banned, WEIGHT_AFTER_SANCTIONS)]
 
 
+async def test_contact_in_the_telegram_name_is_a_risk_signal(moderation: Moderation) -> None:
+    """B3: identity заменила имя из Telegram, похожее на контакт, на «Сосед» — сигнал
+    `contact_leak` об аккаунте, один раз."""
+    user = await moderation.user()
+    record = RecordReregistration(
+        moderation.uow, SqlRiskSignals(moderation.session, moderation.uow)
+    )
+    command = RecordReregistrationCommand(
+        user_id=user, reregistered=False, had_sanctions=False, contact_in_name=True
+    )
+
+    assert (await record(command), await record(command)) == (True, False)
+    rows = await moderation.rows(
+        "SELECT signal, details->>'source' FROM moderation.risk_signals WHERE user_id = :u",
+        u=user,
+    )
+    assert rows == [("contact_leak", "telegram_name")]
+
+
 async def test_systematic_429_become_risk_signals_once(moderation: Moderation) -> None:
     author, stranger = await moderation.user(), UserId(new_id())
     today = moderation.clock.now().date()

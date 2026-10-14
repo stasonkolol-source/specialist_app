@@ -4,7 +4,7 @@
 - `moderation.rate_limit_signals` — раз в 15 минут: сигналы риска по систематическим 429
   (ARCHITECTURE §13.3).
 - `moderation.record_reregistration` — UserRegistered: повторная регистрация после удаления
-  аккаунта — сигнал риска (§7.10).
+  аккаунта (§7.10) и имя из Telegram, похожее на контакт (B3), — сигналы риска.
 - Споры по сделкам (6.1c): `moderation.open_dispute_case` (DealDisputed) — кейс `dispute`,
   `moderation.note_dispute_answer` (DisputeAnswered) и `moderation.note_dispute_unanswered`
   (DisputeUnanswered) — поводы «ответ» и «нет ответа», `moderation.close_dispute_case`
@@ -99,6 +99,7 @@ async def record_reregistration(
             user_id=event.user_id,
             reregistered=event.reregistered,
             had_sanctions=event.had_sanctions,
+            contact_in_name=event.contact_in_name,
         )
     )
 

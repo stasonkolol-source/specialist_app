@@ -19,6 +19,7 @@ from app.modules.messaging.application.dto import ConversationView
 from app.modules.messaging.domain.conversation import ParticipantRole
 from app.modules.specialists.api import SpecialistsApi
 from app.platform.kernel.ids import DealId, UserId
+from app.platform.text.contact_masking import mask_contacts
 
 PUBLISHED: Final = "published"
 """Карточка специалиста открыта только у опубликованного профиля."""
@@ -28,7 +29,8 @@ PUBLISHED: Final = "published"
 class ConversationCard:
     view: ConversationView
     counterpart_name: str | None
-    """Имя на карточке специалиста или имя аккаунта; None — аккаунт второй стороны удалён."""
+    """Имя на карточке специалиста или имя аккаунта, контакты в нём — маской; None — аккаунт
+    второй стороны удалён."""
     counterpart_profile_id: UUID | None
     """Опубликованный профиль второй стороны-исполнителя: шапка S30 ведёт на S08."""
     job_title: str | None
@@ -83,7 +85,8 @@ class ConversationCards:
             public = profile if profile is not None and profile.status == PUBLISHED else None
             name = None
             if user is not None and not user.is_deleted:
-                name = (public.display_name if public else None) or user.display_name
+                # контакт в имени (заведено до правила B3) — маской, как в переписке
+                name = mask_contacts((public.display_name if public else None) or user.display_name)
             cards.append(
                 ConversationCard(
                     view=view,
