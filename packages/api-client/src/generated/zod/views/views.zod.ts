@@ -573,6 +573,11 @@ export const ViewsGetDealCardResponse = zod.object({
     .describe('Бюджет заявки «от» — для сравнения с ценой'),
   counterpart: zod.object({
     role: zod.enum(['client', 'performer']).describe('Кто вторая сторона для меня'),
+    user_id: zod
+      .union([zod.uuid(), zod.null()])
+      .describe(
+        'Аккаунт второй стороны — «Просит предоплату → Пожаловаться» (S26); удалён — пусто',
+      ),
     display_name: zod.string().describe('Аккаунт удалён — пусто'),
     profile_id: zod
       .union([zod.uuid(), zod.null()])

@@ -46,6 +46,12 @@ notifications стоит над контентными модулями (ARCHITE
 - `notifications.notify_passed_over` — ResponseAccepted: остальным откликнувшимся «Выбрали
   другого исполнителя», пока заявка «в работе»; кнопка — «Мои отклики» S17 (чужую заявку после
   выбора исполнителю не открыть).
+- `notifications.notify_choice_made` — ResponseAccepted: клиенту «Вы выбрали: Алексей» — контакты
+  в сделке, оплата — после работы, лично; кнопки «Открыть сделку» и «Пожаловаться» (просят
+  предоплату — жалоба в один тап, бот moderation), если сделка ещё идёт.
+- `notifications.notify_job_reopened` — JobReopened: сделку по выбранному отклику отменили —
+  прежним кандидатам «Заявка снова открыта, ваш отклик в силе» и «Открыть заявку», пока заявка
+  открыта.
 - `notifications.notify_job_closed` — JobClosed: исполнителям, чьи отклики ждали решения, «Заявка
   закрыта без выбора» (`response.not_selected` с `reason: job_closed`, MU-11), кнопка — S17.
 - `notifications.notify_response_declined` — ResponseDeclined: исполнителю «Клиент отклонил
@@ -56,7 +62,8 @@ notifications стоит над контентными модулями (ARCHITE
   «Условия «…» подтверждены — договорились» и «Открыть чат» (UX_GUIDANCE №14).
 - `notifications.notify_deal_cancelled` — DealCancelled: второй стороне — кто отменил и почему
   (при отмене системой — обеим, кроме удалённого аккаунта); клиенту из отклика — «заявка снова
-  открыта». Отменили предложение «Договориться» (сделки ещё не было) — «Предложение не принято»
+  открыта» и «Выбрать из откликов» — кнопка ведёт к заявке S23, а не к отменённой сделке.
+  Отменили предложение «Договориться» (сделки ещё не было) — «Предложение не принято»
   предложившему или «отозвано» второй стороне и «Открыть чат» (№14). Отмену модератором по
   спору объясняет `dispute.resolved`.
 - `notifications.notify_dispute_opened` — DealDisputed: второй стороне — «сообщил о проблеме»,
@@ -66,7 +73,8 @@ notifications стоит над контентными модулями (ARCHITE
   (сделка завершена или отменена) и причина: statement of reasons (6.1c).
 - `notifications.notify_deal_reminder` — DealReminderDue: обеим сторонам за 2 ч до времени.
 - `notifications.notify_deal_completion` — DealCompletionDue: «Работа выполнена?» с [Да, всё
-  хорошо] (кнопку обрабатывает бот deals) и [Есть проблема] тем, кто ещё не отметил.
+  хорошо], [Ещё нет] (пока перенос возможен; кнопки обрабатывает бот deals) и [Есть проблема] тем,
+  кто ещё не отметил; каждый перенос — свой вопрос (ключ с номером переноса).
 - `notifications.notify_deal_marked` — DealMarkedDone: то же второй стороне сразу после отметки
   первой: «Алексей: работа «…» выполнена. Всё в порядке?» — имя отметившего (B2, 7.3).
 - `notifications.notify_deal_completed` — DealCompleted: исполнителю «Сделка выполнена — клиент
@@ -116,6 +124,7 @@ from app.modules.notifications.application.ports import (
     NO_RESPONSES_PREFIX,
     NOTIFY_ACCOUNT_RESTRICTED,
     NOTIFY_APPEAL_DECIDED,
+    NOTIFY_CHOICE_MADE,
     NOTIFY_DEAL_AGREED,
     NOTIFY_DEAL_CANCELLED,
     NOTIFY_DEAL_COMPLETED,
@@ -130,6 +139,7 @@ from app.modules.notifications.application.ports import (
     NOTIFY_JOB_EXPIRING,
     NOTIFY_JOB_INVITED,
     NOTIFY_JOB_PUBLISHED,
+    NOTIFY_JOB_REOPENED,
     NOTIFY_MESSAGES,
     NOTIFY_MODERATION_DECISION,
     NOTIFY_NO_RESPONSES,
@@ -224,6 +234,7 @@ from app.platform.contracts.events.jobs import (
     JobExpiring,
     JobInvited,
     JobPublished,
+    JobReopened,
     ResponseAccepted,
     ResponseDeclined,
     ResponseSubmitted,
@@ -286,6 +297,8 @@ JOB, RESPONSE, DISPUTE = "job", "response", "dispute"
 JOB_CLOSED = "job_closed"
 """`reason` у `response.not_selected`: отклик не выбран, потому что клиент закрыл заявку."""
 AGREED, PROPOSED, COMPLETED = "agreed", "proposed", "completed"
+PUBLISHED = "published"
+"""Заявка принимает отклики (JobBrief.status): прежним кандидатам есть что ждать."""
 FROM_CHAT = "chat"
 """DealOrigin «Договориться» из чата: о подтверждении предложившему пишет `deal.agreed`; выбор
 отклика — `response.accepted`."""
@@ -802,6 +815,54 @@ async def notify_passed_over(
         )
 
 
+@subscriber(ResponseAccepted, NOTIFY_CHOICE_MADE)
+async def notify_choice_made(
+    event: ResponseAccepted,
+    notify: FromDishka[Notify],
+    deals: FromDishka[DealsApi],
+    identity: FromDishka[IdentityApi],
+) -> None:
+    """Клиенту — «Вы выбрали: Алексей»: контакты — в сделке, оплата — после работы, лично;
+    просят предоплату — «Пожаловаться» под этим же сообщением. Раньше о выборе писали только
+    исполнителю, а правило о деньгах клиент не видел там, где решают про деньги."""
+    deal = await deals.deal_brief(event.deal_id)
+    if deal is None or deal.status != AGREED:
+        return  # пока задача ждала, сделку уже отменили
+    performer = await identity.get_user(event.performer_id)
+    name = performer.display_name if performer is not None and not performer.is_deleted else ""
+    await notify(
+        NotifyCommand(
+            user_id=event.client_id,
+            type=NotificationType.RESPONSE_CHOSEN,
+            dedupe_key=f"response.chosen:{event.response_id}",
+            params={"title": deal.title, "name": name, "deal_id": str(event.deal_id)},
+            link=_deal_link(event.deal_id),
+        )
+    )
+
+
+@subscriber(JobReopened, NOTIFY_JOB_REOPENED)
+async def notify_job_reopened(
+    event: JobReopened, notify: FromDishka[Notify], jobs: FromDishka[JobsApi]
+) -> None:
+    """Сделку по выбранному отклику отменили: прежним кандидатам — «Заявка снова открыта, ваш
+    отклик в силе» (им уже сказали «Выбрали другого»). Заявку успели закрыть или снова выбрать
+    исполнителя — не пишем."""
+    job = await jobs.job_brief(event.job_id)
+    if job is None or job.status != PUBLISHED:
+        return
+    for performer_id in event.performer_ids:
+        await notify(
+            NotifyCommand(
+                user_id=performer_id,
+                type=NotificationType.RESPONSE_REOPENED,
+                dedupe_key=f"response.reopened:{event.response_id}:{performer_id}",
+                params={"title": job.title},
+                link=_job_link(event.job_id),
+            )
+        )
+
+
 @subscriber(JobClosed, NOTIFY_JOB_CLOSED)
 async def notify_job_closed(
     event: JobClosed, notify: FromDishka[Notify], jobs: FromDishka[JobsApi]
@@ -942,7 +1003,9 @@ async def notify_deal_cancelled(
             "reason": event.reason,
             "reopened": "true" if reopened else "false",
         }
-        link = _deal_link(event.deal_id)
+        # заявка снова открыта: клиенту — к откликам S23 (`j_` владельца), а не к отменённой
+        # сделке, где делать уже нечего
+        link = _job_link(event.job_id) if reopened and event.job_id else _deal_link(event.deal_id)
         if proposer is not None:
             # сделки не было — было предложение: его не приняли или предложивший отозвал (№14)
             params["proposal"] = "declined" if user_id == proposer else "withdrawn"
@@ -1002,13 +1065,19 @@ async def notify_deal_completion(
         asked.append(event.client_id)
     if event.ask_performer:
         asked.append(event.performer_id)
+    # перенос «Ещё нет» — новый вопрос: свой ключ на каждый перенос (первый — прежний ключ)
+    round_ = f":{event.snoozes}" if event.snoozes else ""
     for user_id in asked:
         await notify(
             NotifyCommand(
                 user_id=user_id,
                 type=NotificationType.DEAL_COMPLETION_PROMPT,
-                dedupe_key=f"deal.completion_prompt:{event.deal_id}:{user_id}",
-                params={"title": deal.title, "deal_id": str(event.deal_id)},
+                dedupe_key=f"deal.completion_prompt:{event.deal_id}:{user_id}{round_}",
+                params={
+                    "title": deal.title,
+                    "deal_id": str(event.deal_id),
+                    "snooze": "true" if event.can_snooze else "false",
+                },
                 link=_deal_link(event.deal_id),
             )
         )

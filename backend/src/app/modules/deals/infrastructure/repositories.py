@@ -111,6 +111,8 @@ def _to_domain(row: DealRow) -> Deal:
         cancel_reason=row.cancel_reason,
         reminded_at=row.reminded_at,
         completion_prompted_at=row.completion_prompted_at,
+        completion_snoozes=row.completion_snoozes,
+        completion_snoozed_until=row.completion_snoozed_until,
         version=row.version,
     )
 
@@ -140,6 +142,8 @@ def _apply(deal: Deal, row: DealRow) -> None:
     row.cancel_reason = deal.cancel_reason
     row.reminded_at = deal.reminded_at
     row.completion_prompted_at = deal.completion_prompted_at
+    row.completion_snoozes = deal.completion_snoozes
+    row.completion_snoozed_until = deal.completion_snoozed_until
     row.updated_at = deal.updated_at
 
 

@@ -139,6 +139,21 @@ class ResponseAccepted(DomainEvent):
 
 
 @dataclass(frozen=True, slots=True, kw_only=True)
+class JobReopened(DomainEvent):
+    """Сделку по выбранному отклику отменили (§7.9): заявка снова «опубликована», прежние
+    кандидаты («не выбран») снова ждут решения. Им — «Заявка снова открыта, ваш отклик в силе»:
+    раньше им сказали «Выбрали другого»."""
+
+    event_type = "jobs.JobReopened"
+    job_id: UUID
+    client_id: UserId
+    response_id: UUID
+    """Выбранный отклик, сделку по которому отменили."""
+    performer_ids: tuple[UserId, ...] = ()
+    """Исполнители, чьи отклики снова ждут решения клиента."""
+
+
+@dataclass(frozen=True, slots=True, kw_only=True)
 class ResponseDeclined(DomainEvent):
     """Клиент отклонил отклик (6.1a): место на заявке освободилось."""
 

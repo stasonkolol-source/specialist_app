@@ -16,7 +16,9 @@
 
 Сроки (ARCHITECTURE §12.3, 6.1b): за 2 ч до времени сделки — напоминание сторонам (`remind`),
 через 3 ч после него — «Работа выполнена?» (`prompt_completion`); у сделки без времени вопрос
-приходит через сутки после договорённости. Каждое — один раз: отметка в сделке.
+приходит через сутки после договорённости. Каждое — один раз: отметка в сделке. «Ещё нет» под
+вопросом (`snooze_completion`) переносит его на сутки — не больше трёх раз на сделку: человек не
+жмёт «Есть проблема» от безысходности, а вечного переноса нет.
 
 Переходы пишутся в `deals.status_history`: создание — без исходного статуса.
 """
@@ -59,6 +61,10 @@ AUTO_COMPLETE_AFTER: Final = timedelta(hours=72)
 """Одна сторона отметила «выполнено», вторая молчит 72 ч — сделка завершена (§7.9)."""
 PROPOSAL_TTL: Final = timedelta(hours=72)
 """«Договорились» без ответа второй стороны 72 ч — предложение истекло (§7.9)."""
+SNOOZE_DELAY: Final = timedelta(hours=24)
+"""«Ещё нет» под «Работа выполнена?»: спросить снова через сутки."""
+MAX_COMPLETION_SNOOZES: Final = 3
+"""Переносов вопроса на сделку; после третьего «Ещё нет» под вопросом нет."""
 
 
 class DealStatus(StrEnum):
@@ -205,6 +211,10 @@ class Deal(VersionedAggregate):
     """Сторонам напомнили о времени сделки."""
     completion_prompted_at: datetime | None = None
     """Сторонам задали вопрос «Работа выполнена?»."""
+    completion_snoozes: int = 0
+    """Сколько раз вопрос «Работа выполнена?» переносили «Ещё нет» (не больше трёх)."""
+    completion_snoozed_until: datetime | None = None
+    """Последний перенос: с этого времени спросить снова — вместо срока по времени работы."""
     _history: list[DealTransition] = field(default_factory=list, init=False, repr=False)
 
     @classmethod
@@ -346,7 +356,10 @@ class Deal(VersionedAggregate):
 
     @property
     def completion_due_at(self) -> datetime | None:
-        """Когда спросить «Работа выполнена?»; не договорились — None."""
+        """Когда спросить «Работа выполнена?»; перенесли «Ещё нет» — когда спросить снова; не
+        договорились — None."""
+        if self.completion_snoozed_until is not None:
+            return self.completion_snoozed_until
         if self.terms.scheduled_at is not None:
             return self.terms.scheduled_at + PROMPT_DELAY
         if self.agreed_at is not None:
@@ -389,9 +402,29 @@ class Deal(VersionedAggregate):
                 performer_id=self.performer_id,
                 ask_client=self.client_confirmed_at is None,
                 ask_performer=self.performer_confirmed_at is None,
+                snoozes=self.completion_snoozes,
+                can_snooze=self.completion_snoozes < MAX_COMPLETION_SNOOZES,
                 occurred_at=now,
             )
         )
+        return True
+
+    def snooze_completion(self, *, actor_id: UserId, now: datetime) -> bool:
+        """«Ещё нет» под «Работа выполнена?»: спросить снова через сутки (тех, кто не отметил).
+        Пока новый вопрос не задан, повтор (двойное нажатие, вторая сторона) ничего не меняет и
+        перенос не тратит. Переносов уже три — False: вопрос остаётся, отвечают «Да» или «Есть
+        проблема». Сделка не идёт — DealNotActiveError."""
+        self._party(actor_id)
+        if self.status is not DealStatus.AGREED:
+            raise DealNotActiveError(deal_id=self.id, deal_status=self.status.value)
+        if self.completion_prompted_at is None and self.completion_snoozed_until is not None:
+            return True  # уже перенесли, новый вопрос ещё не задан
+        if self.completion_snoozes >= MAX_COMPLETION_SNOOZES:
+            return False
+        self.completion_snoozes += 1
+        self.completion_snoozed_until = now + SNOOZE_DELAY
+        self.completion_prompted_at = None
+        self.updated_at = now
         return True
 
     def auto_complete(self, *, now: datetime) -> bool:

@@ -1,6 +1,7 @@
-// Спор по сделке S52 (DEVELOPMENT_PLAN 6.1c, 6.2) на фейке backend: SecondaryButton «Есть
-// проблема» S26 ведёт на S52; форма — что случилось, описание и фото (media `dispute`), «Отправить»
-// после выбора и текста; спор сразу на экране — «Ждём ответа», а S26 — «на паузе» и «Спор по
+// Спор по сделке S52 (DEVELOPMENT_PLAN 6.1c, 6.2) на фейке backend: строка «Есть проблема» S26 —
+// шторка трёх путей: «Не пришёл» отменяет сделку (`no_contact`) и ведёт к откликам, «Просит
+// предоплату» — жалоба в один тап, «Сделал плохо» — S52; форма — что случилось (без «Не пришёл»,
+// пока сделку можно отменить), описание и фото (media `dispute`), «Отправить» после выбора и текста; спор сразу на экране — «Ждём ответа», а S26 — «на паузе» и «Спор по
 // сделке». Вторая сторона видит сообщение, срок и отвечает; открывший отзывает спор — сделка снова
 // идёт. Решение поддержки — с причиной; спор по сделке не в работе не открыть.
 import type { DealCardDisputeOut, DealCardOut } from '@sosed/api-client';
@@ -16,8 +17,9 @@ import {
   myJobsFixture,
   responseCardsFixture,
 } from '../../testing/jobsBackend.ts';
-import { jobsHandlers, profileHandlers, server } from '../../testing/msw.ts';
+import { jobsHandlers, profileHandlers, safetyHandlers, server } from '../../testing/msw.ts';
 import { ProfileBackend } from '../../testing/profileBackend.ts';
+import { SafetyBackend } from '../../testing/safetyBackend.ts';
 
 // в jsdom нет холста и XHR в хранилище: файл «доходит» в хранилище сразу
 const transport = vi.hoisted(() => ({
@@ -28,6 +30,7 @@ vi.mock('./shared/uploads.ts', () => ({ mediaTransport: transport }));
 const [CHANDELIER] = myJobsFixture();
 const [ALEKSEY] = responseCardsFixture();
 const NO_SHOW = 'Договорились на 19:00. В 19:40 мастера всё ещё нет.';
+const QUALITY = 'Люстра висит криво, один плафон треснул.';
 
 beforeEach(() => {
   vi.useFakeTimers({ toFake: ['Date'], now: new Date(E2E_NOW) });
@@ -89,19 +92,36 @@ async function choose(files: File[]) {
 }
 
 describe('S26 «Есть проблема»', () => {
-  it('opens S52 from the «Есть проблема» row of an agreed deal', async () => {
-    const { deal } = withDeal();
-    const { app, telegram } = startApp(`/deals/${deal.id}`);
+  /** S26 сделки и шторка «Что случилось?» после строки «Есть проблема». */
+  async function openProblems(dealId: string) {
+    const started = startApp(`/deals/${dealId}`);
     await screen.findByRole('heading', { name: 'Повесить люстру', level: 1 });
     // строкой внизу, рядом с «Отменить сделку», а не нативной кнопкой с первой минуты (№2)
     const problem = await screen.findByRole('button', { name: 'Есть проблема' });
-    expect(telegram.callsOf('web_app_setup_secondary_button').at(-1)?.is_visible ?? false).toBe(
-      false,
-    );
+    expect(
+      started.telegram.callsOf('web_app_setup_secondary_button').at(-1)?.is_visible ?? false,
+    ).toBe(false);
+    await click(problem);
+    return { ...started, sheet: await screen.findByRole('dialog', { name: 'Что случилось?' }) };
+  }
 
-    await act(async () => {
-      fireEvent.click(problem);
-    });
+  /** Строки путей: подпись и пояснение (крестик «Закрыть» — с aria-label, без текста). */
+  const paths = (sheet: HTMLElement) =>
+    within(sheet)
+      .getAllByRole('button')
+      .filter((button) => !button.hasAttribute('aria-label'))
+      .map((button) => button.textContent);
+
+  it('offers the client three paths; «Сделал плохо» opens S52', async () => {
+    const { deal } = withDeal();
+    const { app, sheet } = await openProblems(deal.id);
+
+    expect(paths(sheet)).toEqual([
+      'Не пришёл или нет связиОтменить сделку и выбрать другого из откликов',
+      'Просит предоплатуПожаловаться — модератор проверит аккаунт',
+      'Сделал плохо или ущербОткрыть спор — поможет поддержка',
+    ]);
+    await click(within(sheet).getByRole('button', { name: /^Сделал плохо или ущерб/ }));
 
     await waitFor(() =>
       expect(app.router.state.location.pathname).toBe(`/deals/${deal.id}/dispute`),
@@ -109,6 +129,72 @@ describe('S26 «Есть проблема»', () => {
     expect(
       await screen.findByRole('heading', { name: 'Проблема со сделкой', level: 1 }),
     ).toBeTruthy();
+  });
+
+  it('«Не пришёл» cancels the deal and leads the client back to the responses', async () => {
+    const { backend, deal } = withDeal();
+    const { app, telegram, sheet } = await openProblems(deal.id);
+
+    await click(within(sheet).getByRole('button', { name: /^Не пришёл или нет связи/ }));
+
+    expect(await screen.findByText('Вы отменили сделку: нет связи.')).toBeTruthy();
+    expect(backend.decisions).toEqual([{ id: deal.id, action: 'cancel', reason: 'no_contact' }]);
+    expect(screen.queryByRole('dialog', { name: 'Что случилось?' })).toBeNull();
+    // заявка снова открыта: следующий шаг — другой отклик, а не тупик отменённой сделки
+    await waitFor(() =>
+      expect(mainButton(telegram)).toMatchObject({ text: 'Выбрать из откликов' }),
+    );
+    await pressMainButton(telegram);
+    await waitFor(() =>
+      expect(app.router.state.location.pathname).toBe(`/jobs/${deal.job_id}/manage`),
+    );
+  });
+
+  it('«Просит предоплату» reports the performer in one tap', async () => {
+    const { deal } = withDeal();
+    const safety = new SafetyBackend();
+    server.use(...safetyHandlers(() => safety));
+    const { sheet } = await openProblems(deal.id);
+
+    await click(within(sheet).getByRole('button', { name: /^Просит предоплату/ }));
+
+    expect(
+      await screen.findByText(
+        'Жалоба отправлена — модератор проверит аккаунт. Не переводите деньги вперёд: оплата — после работы, лично.',
+      ),
+    ).toBeTruthy();
+    expect(safety.reports).toEqual([
+      {
+        target_type: 'user',
+        target_id: deal.counterpart.user_id,
+        reason: 'fraud',
+        conversation_id: null,
+      },
+    ]);
+    expect(screen.queryByRole('dialog', { name: 'Что случилось?' })).toBeNull();
+  });
+
+  it('gives the performer two paths and leads «не пришёл» to a dispute after a mark', async () => {
+    if (!CHANDELIER || !ALEKSEY) throw new Error('fixtures');
+    const { timeline } = dealCardFixture(CHANDELIER, ALEKSEY, 'client');
+    // клиент отметил «Работа выполнена» — отменить сделку уже нельзя (MU-8)
+    const { backend, deal } = withDeal({ timeline: { ...timeline, my_mark_at: E2E_NOW } });
+    backend.dealRole = 'performer';
+    const { app, sheet } = await openProblems(deal.id);
+
+    expect(paths(sheet)).toEqual([
+      'Клиент не выходит на связьРаботу уже отметили — отменить нельзя, откройте спор',
+      'Другая проблемаОткрыть спор — поможет поддержка',
+    ]);
+    await click(within(sheet).getByRole('button', { name: /^Клиент не выходит на связь/ }));
+
+    await waitFor(() =>
+      expect(app.router.state.location.pathname).toBe(`/deals/${deal.id}/dispute`),
+    );
+    expect(backend.decisions).toEqual([]);
+    // отменить уже нельзя — «Не пришёл» снова среди вариантов спора
+    const kinds = await screen.findByRole('radiogroup', { name: 'Что случилось?' });
+    expect(within(kinds).getByRole('radio', { name: 'Не пришёл' })).toBeTruthy();
   });
 });
 
@@ -132,7 +218,7 @@ describe('S52 dispute', () => {
         .getAllByRole('radio')
         .map((radio) => radio.textContent),
     ).toEqual([
-      'Не пришёл',
+      // «Не пришёл» — не спор, пока сделку можно отменить: путь «Отменить и выбрать другого» S26
       'Сделал плохо или не то',
       'Взял предоплату или просит больше',
       'Грубость или угрозы',
@@ -141,19 +227,19 @@ describe('S52 dispute', () => {
     await waitFor(() => expect(mainButton(telegram)).toMatchObject({ text: 'Отправить' }));
     expect(mainButton(telegram)?.is_active).toBe(false);
 
-    await click(within(kinds).getByRole('radio', { name: 'Не пришёл' }));
+    await click(within(kinds).getByRole('radio', { name: 'Сделал плохо или не то' }));
     fireEvent.change(screen.getByRole('textbox', { name: 'Опишите, что произошло' }), {
-      target: { value: `  ${NO_SHOW}  ` },
+      target: { value: `  ${QUALITY}  ` },
     });
     await choose([new File(['jpeg'], 'door.jpg', { type: 'image/jpeg' })]);
     await waitFor(() => expect(mainButton(telegram)?.is_active).toBe(true));
     await pressMainButton(telegram);
 
     expect(await screen.findByText('Ждём ответа')).toBeTruthy();
-    expect(backend.decisions).toEqual([{ id: deal.id, action: 'dispute', reason: 'no_show' }]);
+    expect(backend.decisions).toEqual([{ id: deal.id, action: 'dispute', reason: 'quality' }]);
     const mine = screen.getByRole('region', { name: 'Ваше сообщение' });
-    expect(within(mine).getByText('Не пришёл')).toBeTruthy();
-    expect(within(mine).getByText(NO_SHOW)).toBeTruthy();
+    expect(within(mine).getByText('Сделал плохо или не то')).toBeTruthy();
+    expect(within(mine).getByText(QUALITY)).toBeTruthy();
     expect(within(mine).getByRole('img', { name: 'Фото 1' })).toBeTruthy();
     expect(screen.getByText(/^Алексей Морозов может ответить до /)).toBeTruthy();
     await waitFor(() => expect(mainButton(telegram)?.is_visible).toBe(false));

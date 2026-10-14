@@ -27,6 +27,7 @@ from app.modules.moderation.domain.rules import ContentRule, RuleExample, RuleSe
 from app.modules.moderation.domain.sanctions import Sanction, SanctionStep
 from app.platform.ai.port import ContentKind
 from app.platform.contracts.events.deals import (
+    DealCancelled,
     DealDisputed,
     DisputeAnswered,
     DisputeUnanswered,
@@ -336,6 +337,8 @@ NOTE_DISPUTE_UNANSWERED: Final = TaskRef("moderation.note_dispute_unanswered", D
 """48 ч без ответа: пометка «нет ответа» в кейсе."""
 CLOSE_DISPUTE_CASE: Final = TaskRef("moderation.close_dispute_case", DisputeWithdrawn)
 """Спор отозван: кейс закрыт без решения."""
+REPORT_NO_SHOW: Final = TaskRef("moderation.report_no_show", DealCancelled)
+"""Клиент отменил сделку «не выходит на связь»: тихая жалоба `no_show` на исполнителя."""
 POST_CASE_CARD: Final = TaskRef("moderation.post_case_card", CaseOpened)
 """Новый кейс (2.5b): карточка в чате модераторов."""
 CONCIERGE_AFTER: Final = timedelta(minutes=20)

@@ -1,7 +1,8 @@
 """Сроки сделок (DEVELOPMENT_PLAN 6.1b; ARCHITECTURE §12.3) со сдвигом часов: периодические
 проходы напоминают за 2 ч до времени, спрашивают «Работа выполнена?» после него (без времени —
-через сутки), завершают сделку через 72 ч после отметки одной стороны и отменяют предложение
-«Договорились» без ответа. Повторный проход ничего не меняет. Данные коммитятся.
+через сутки; после «Ещё нет» — когда кончится перенос), завершают сделку через 72 ч после отметки
+одной стороны и отменяют предложение «Договорились» без ответа. Повторный проход ничего не
+меняет. Данные коммитятся.
 """
 
 from collections.abc import AsyncIterator
@@ -103,6 +104,32 @@ async def test_completion_prompt_after_the_time_or_a_day_later(worker: AsyncCont
     assert (await row(worker, timed)).completion_prompted_at is not None
     assert (await row(worker, untimed)).completion_prompted_at is not None
     assert (await row(worker, fresh)).completion_prompted_at is None
+
+
+async def test_snoozed_question_comes_back_when_the_snooze_ends(worker: AsyncContainer) -> None:
+    """«Ещё нет»: срок вопроса — конец переноса, а не время работы (оно давно прошло)."""
+    client, performer = await parties(worker)
+    waiting = await deal(
+        worker,
+        client,
+        performer,
+        scheduled_at="now() - interval '30 hours'",
+        completion_snoozes="1",
+        completion_snoozed_until="now() + interval '1 hour'",
+    )
+    due = await deal(
+        worker,
+        client,
+        performer,
+        scheduled_at="now() + interval '1 hour'",
+        completion_snoozes="2",
+        completion_snoozed_until="now() - interval '1 minute'",
+    )
+
+    await sweep(worker, DealSweep.PROMPT)
+
+    assert (await row(worker, waiting)).completion_prompted_at is None
+    assert (await row(worker, due)).completion_prompted_at is not None
 
 
 async def test_silent_party_three_days_completes(worker: AsyncContainer) -> None:

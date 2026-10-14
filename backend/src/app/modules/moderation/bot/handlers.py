@@ -23,6 +23,8 @@ admin), а также добавление бота в группу персон
 супергруппу (`migrate_from_chat_id`: id меняется) — бот отвечает id чата и куда его прописать;
 если это уже чат модераторов — так и говорит. Остальным в группах бот молчит: его могут добавить
 в любой чат, а id и подсказка нужны только персоналу.
+
+Пользователю в личном чате — «Пожаловаться» в один тап по сделке (bot/reports.py).
 """
 
 from collections.abc import Awaitable
@@ -64,6 +66,7 @@ from app.modules.moderation.application.use_cases.take_case import (
     EscalateCase,
     EscalateCaseCommand,
 )
+from app.modules.moderation.bot import reports
 from app.modules.moderation.domain.cases import Case, EntityType
 from app.modules.moderation.domain.sanctions import Severity
 from app.platform.contracts.events.moderation import ModerationDecision
@@ -386,6 +389,9 @@ def create_router() -> Router:
         (CallbackAction.CASE_BACK, back),
     ):
         router.callback_query.register(handler, F.data.startswith(f"{action}:"))
+    router.callback_query.register(
+        reports.report_deal, F.data.startswith(f"{CallbackAction.DEAL_REPORT}:")
+    )
     # id чата модераторов (K29): только группы — личные /start и прочее у других модулей
     groups = F.chat.type.in_(GROUPS)
     router.message.register(chat_id, Command(CHAT_ID_COMMAND), groups)

@@ -67,7 +67,10 @@ const LOOK: Record<NotificationType, Look> = {
   'job.no_responses': { icon: 'share', palette: 3 },
   'response.received': { icon: 'jobs', palette: 3 },
   'response.accepted': { icon: 'check-circle' },
+  // «Вы выбрали …» уходит только в бот (кнопка «Пожаловаться» — его); тип — для полноты карты
+  'response.chosen': { icon: 'check-circle' },
   'response.not_selected': { icon: 'jobs', neutral: true },
+  'response.reopened': { icon: 'jobs', palette: 3 },
   // исходы исполнителю (UX-аудит №11) — только здесь, в бот не уходят
   'response.declined': { icon: 'jobs', neutral: true },
   'message.received': { icon: 'chat', palette: 2 },

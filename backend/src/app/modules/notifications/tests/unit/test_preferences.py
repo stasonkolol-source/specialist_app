@@ -123,6 +123,7 @@ def test_catalog_follows_the_architecture() -> None:
     assert {t for t, spec in CATALOG.items() if spec.quiet_exempt} == {
         NotificationType.MESSAGE_RECEIVED,
         NotificationType.RESPONSE_ACCEPTED,
+        NotificationType.RESPONSE_CHOSEN,  # выбор — и клиенту: он только что выбрал
         NotificationType.DEAL_PROPOSED,
         NotificationType.SYSTEM_TEST,  # проверку канала человек ждёт сейчас
     }

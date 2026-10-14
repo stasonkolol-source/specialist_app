@@ -776,9 +776,104 @@ def test_completion_prompt_has_yes_and_problem_in_one_row(
     assert isinstance(yes, CallbackButton)
     assert yes.text == "Да, всё хорошо"
     assert parse_callback(yes.data) == CallbackData(CallbackAction.DEAL_COMPLETE, DEAL_ID)
-    assert isinstance(problem, AppButton)
-    # «Есть проблема» — сразу спор S52 (`p_`, 6.1c), не карточка сделки
-    assert (problem.text, problem.url) == ("Есть проблема", f"{MINI_APP}?startapp={DISPUTE_LINK}")
+    # «Есть проблема» — три пути в боте (отменить и выбрать другого, пожаловаться, спор)
+    assert isinstance(problem, CallbackButton)
+    assert problem.text == "Есть проблема"
+    assert parse_callback(problem.data) == CallbackData(CallbackAction.DEAL_PROBLEM, DEAL_ID)
+
+
+def test_completion_prompt_offers_not_yet_while_it_can_be_snoozed(
+    renderer: GettextNotificationRenderer,
+) -> None:
+    params = {"title": "Люстра", "deal_id": str(DEAL_ID)}
+    _, lines = renderer.telegram(
+        NotificationType.DEAL_COMPLETION_PROMPT, params | {"snooze": "true"}, DEAL_LINK, Locale.RU
+    )
+    row, _ = lines
+    assert isinstance(row, tuple)
+    _, not_yet = row
+
+    assert [b.text for b in flat(lines)] == ["Да, всё хорошо", "Ещё нет", "Есть проблема"]
+    assert isinstance(not_yet, CallbackButton)
+    assert parse_callback(not_yet.data) == CallbackData(CallbackAction.DEAL_SNOOZE, DEAL_ID)
+    # переносили уже три раза или вторая сторона отметила — «Ещё нет» не предлагаем
+    for extra in ({"snooze": "false"}, {"snooze": "true", "by": "performer", "name": "Ana"}):
+        _, buttons = renderer.telegram(
+            NotificationType.DEAL_COMPLETION_PROMPT, params | extra, DEAL_LINK, Locale.RU
+        )
+        assert [b.text for b in flat(buttons)] == ["Да, всё хорошо", "Есть проблема"]
+
+
+@pytest.mark.parametrize(
+    ("locale", "text", "report"),
+    [
+        (
+            Locale.RU,
+            "<b>Вы выбрали: Алексей Морозов</b>\nЗаявка «Люстра». Контакты — в сделке. Оплата —"
+            " после работы, лично; если просят предоплату — нажмите «Пожаловаться» под"
+            " сообщением.",
+            "Пожаловаться",
+        ),
+        (
+            Locale.SR_CYRL,
+            "<b>Изабрали сте: Алексей Морозов</b>\nЗахтев „Люстра“. Контакти — у договору."
+            " Плаћање — после посла, лично; ако траже аванс — притисните „Пријави“ испод"
+            " поруке.",
+            "Пријави",
+        ),
+    ],
+)
+def test_client_choice_says_pay_after_work_with_a_report_button(
+    renderer: GettextNotificationRenderer, locale: Locale, text: str, report: str
+) -> None:
+    rendered, buttons = renderer.telegram(
+        NotificationType.RESPONSE_CHOSEN,
+        {"title": "Люстра", "name": "Алексей Морозов", "deal_id": str(DEAL_ID)},
+        DEAL_LINK,
+        locale,
+    )
+
+    assert rendered == text
+    deal, complain = flat(buttons)
+    assert isinstance(deal, AppButton)
+    assert deal.url == f"{MINI_APP}?startapp={DEAL_LINK}"
+    assert isinstance(complain, CallbackButton)
+    assert complain.text == report
+    assert parse_callback(complain.data) == CallbackData(CallbackAction.DEAL_REPORT, DEAL_ID)
+
+
+def test_client_choice_without_a_name(renderer: GettextNotificationRenderer) -> None:
+    text = renderer.text(
+        NotificationType.RESPONSE_CHOSEN, {"title": "Люстра", "name": ""}, Locale.RU
+    )
+
+    assert text.title == "Вы выбрали исполнителя"
+
+
+def test_reopened_job_tells_former_candidates_their_response_stands(
+    renderer: GettextNotificationRenderer,
+) -> None:
+    job_link = encode_start_param(StartLink(type=LinkType.JOB, id=DEAL_ID))
+    text, buttons = renderer.telegram(
+        NotificationType.RESPONSE_REOPENED, {"title": "Люстра"}, job_link, Locale.RU
+    )
+
+    assert text == (
+        "<b>Заявка снова открыта</b>\nКлиент снова выбирает исполнителя по заявке «Люстра» —"
+        " ваш отклик в силе."
+    )
+    assert opens(buttons) == [("Открыть заявку", f"{MINI_APP}?startapp={job_link}")]
+
+
+def test_cancelled_deal_with_a_reopened_job_leads_to_responses(
+    renderer: GettextNotificationRenderer,
+) -> None:
+    job_link = encode_start_param(StartLink(type=LinkType.JOB, id=DEAL_ID))
+    params = {"title": "Люстра", "by": "performer", "reason": "no_contact", "reopened": "true"}
+
+    _, buttons = renderer.telegram(NotificationType.DEAL_CANCELLED, params, job_link, Locale.RU)
+
+    assert opens(buttons) == [("Выбрать из откликов", f"{MINI_APP}?startapp={job_link}")]
 
 
 @pytest.mark.parametrize(
@@ -843,11 +938,20 @@ def test_deal_texts_on_three_scripts(renderer: GettextNotificationRenderer, loca
             {"title": "Люстра", "by": "client", "reason": "other", "reopened": "true"},
         ),
         (NotificationType.DEAL_REMINDER, {"title": "Люстра", "at": "2026-10-03T17:00:00+00:00"}),
-        (NotificationType.DEAL_COMPLETION_PROMPT, {"title": "Люстра", "deal_id": str(DEAL_ID)}),
+        (
+            NotificationType.DEAL_COMPLETION_PROMPT,
+            {"title": "Люстра", "deal_id": str(DEAL_ID), "snooze": "true"},
+        ),
         (
             NotificationType.DEAL_COMPLETION_PROMPT,
             {"title": "Люстра", "deal_id": str(DEAL_ID), "by": "client", "name": ""},
         ),
+        (
+            NotificationType.RESPONSE_CHOSEN,
+            {"title": "Люстра", "name": "Ana", "deal_id": str(DEAL_ID)},
+        ),
+        (NotificationType.RESPONSE_CHOSEN, {"title": "Люстра", "name": ""}),
+        (NotificationType.RESPONSE_REOPENED, {"title": "Люстра"}),
     ]
     for type_, params in cases:
         text, buttons = renderer.telegram(type_, params, DEAL_LINK, locale)

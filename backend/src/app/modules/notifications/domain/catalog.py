@@ -20,7 +20,13 @@ class NotificationType(StrEnum):
     """Подборка заявок по подпискам «раз в день» (5.7)."""
     RESPONSE_RECEIVED = "response.received"
     RESPONSE_ACCEPTED = "response.accepted"
+    RESPONSE_CHOSEN = "response.chosen"
+    """Клиент выбрал отклик: ему — «Вы выбрали …», контакты в сделке, оплата — после работы, и
+    «Пожаловаться» под сообщением, если просят предоплату. Только бот: кнопка — его."""
     RESPONSE_NOT_SELECTED = "response.not_selected"
+    RESPONSE_REOPENED = "response.reopened"
+    """Сделку по выбранному отклику отменили: прежним кандидатам — «Заявка снова открыта, ваш
+    отклик в силе» (их отклики снова ждут решения)."""
     RESPONSE_DECLINED = "response.declined"
     """Клиент отклонил отклик: исполнителю — только в центре S42, без бота (исход, а не повод
     действовать; UX-аудит №11)."""
@@ -153,8 +159,15 @@ CATALOG: Mapping[NotificationType, TypeSpec] = MappingProxyType(
             channels=BOT_AND_APP,
             quiet_exempt=True,
         ),
+        # клиент только что выбрал — пишем сразу, и в тихие часы: он в приложении
+        NotificationType.RESPONSE_CHOSEN: TypeSpec(
+            group=EventGroup.RESPONSES, priority=Priority.P1, channels=BOT, quiet_exempt=True
+        ),
         NotificationType.RESPONSE_NOT_SELECTED: TypeSpec(
             group=EventGroup.RESPONSES, priority=Priority.P3, channels=BOT_AND_APP
+        ),
+        NotificationType.RESPONSE_REOPENED: TypeSpec(
+            group=EventGroup.RESPONSES, priority=Priority.P2, channels=BOT_AND_APP
         ),
         NotificationType.RESPONSE_DECLINED: TypeSpec(
             group=EventGroup.RESPONSES, priority=Priority.P3, channels=APP

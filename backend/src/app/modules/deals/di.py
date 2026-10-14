@@ -21,6 +21,7 @@ from app.modules.deals.application.use_cases.open_dispute import OpenDispute
 from app.modules.deals.application.use_cases.respond_dispute import RespondDispute
 from app.modules.deals.application.use_cases.show_deal import ShowDeal
 from app.modules.deals.application.use_cases.show_dispute import ShowDispute
+from app.modules.deals.application.use_cases.snooze_completion import SnoozeCompletion
 from app.modules.deals.application.use_cases.sweep_deals import SweepDeals
 from app.modules.deals.application.use_cases.sweep_disputes import SweepDisputes
 from app.modules.deals.application.use_cases.withdraw_dispute import WithdrawDispute
@@ -55,3 +56,4 @@ class DealsProvider(Provider):
     withdraw_dispute = provide(WithdrawDispute)
     show_dispute = provide(ShowDispute)
     sweep_disputes = provide(SweepDisputes)
+    snooze_completion = provide(SnoozeCompletion)
