@@ -71,6 +71,7 @@ export const NotificationsListNotificationsResponse = zod.object({
           'job.published',
           'job.expiring',
           'job.expired',
+          'job.no_responses',
           'profile.stale_reminder',
           'profile.published',
           'account.restricted',

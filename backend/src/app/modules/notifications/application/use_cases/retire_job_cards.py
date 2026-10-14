@@ -5,6 +5,8 @@ ARCHITECTURE §11.3).
 `job.matched:<заявка>:*`, которые ещё ждут конца тихих часов, не уходят (`suppressed`,
 `job_closed`); на каждую отправленную ставится `notifications.retire_card` — правка кнопок идёт
 через тот же лимитер, что и отправка, и не задерживает обработчик события сотнями вызовов Bot API.
+Клиенту «Пока никто не откликнулся» (`job.no_responses:<заявка>`), ждущее утра, — тоже не уходит:
+заявка закрыта, истекла или исполнитель выбран.
 """
 
 from dataclasses import dataclass
@@ -12,6 +14,7 @@ from typing import Final
 from uuid import UUID
 
 from app.modules.notifications.application.ports import (
+    NO_RESPONSES_PREFIX,
     RETIRE_CARD,
     NotificationQuery,
     NotificationRepository,
@@ -48,8 +51,12 @@ class RetireJobCards:
         prefix = f"{NotificationType.JOB_MATCHED}:{cmd.job_id}:"
         sent = await self._query.sent_with_prefix(prefix)
         priority = CATALOG[NotificationType.JOB_MATCHED].priority.job_priority
+        now = self._clock.now()
         async with self._uow:
-            await self._notifications.suppress_queued(prefix, error=CLOSED, now=self._clock.now())
+            await self._notifications.suppress_queued(prefix, error=CLOSED, now=now)
+            await self._notifications.suppress_queued(
+                f"{NO_RESPONSES_PREFIX}{cmd.job_id}", error=CLOSED, now=now
+            )
             for delivery_id in sent:
                 await self._queue.enqueue(
                     RETIRE_CARD,

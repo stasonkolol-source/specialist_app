@@ -930,6 +930,15 @@ msgstr "«{title}» больше не видна исполнителям. Ес�
 msgid "notifications.job_expired.body_final"
 msgstr "«{title}» больше не видна исполнителям. Продлевать её больше нельзя: если исполнитель ещё нужен, создайте новую заявку."
 
+msgid "notifications.job_no_responses.title"
+msgstr "Откликов пока нет"
+
+msgid "notifications.job_no_responses.body"
+msgstr "Пока никто не откликнулся на «{title}». Поделитесь заявкой в чате района — так её увидят быстрее."
+
+msgid "notifications.job_no_responses.share"
+msgstr "Поделиться"
+
 msgid "notifications.response_accepted.title"
 msgstr "Вас выбрали"
 

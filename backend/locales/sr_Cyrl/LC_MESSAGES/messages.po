@@ -930,6 +930,15 @@ msgstr "„{title}“ више не виде извођачи. Ако вам ј�
 msgid "notifications.job_expired.body_final"
 msgstr "„{title}“ више не виде извођачи. Више не може да се продужи: ако вам је извођач још потребан, направите нови захтев."
 
+msgid "notifications.job_no_responses.title"
+msgstr "Још нема понуда"
+
+msgid "notifications.job_no_responses.body"
+msgstr "Још нико није послао понуду на „{title}“. Поделите захтев у ћаскању вашег кварта — тако ће га брже видети."
+
+msgid "notifications.job_no_responses.share"
+msgstr "Подели"
+
 msgid "notifications.response_accepted.title"
 msgstr "Изабрани сте"
 

@@ -19,6 +19,10 @@ deals) и web_app «Посмотреть условия». Спор (6.1c): `dis
 подпискам с «Открыть ленту», `profile.stale_reminder` — «Включить «Доступен сегодня»» (S38) и
 «Обновить профиль» (S33).
 
+«Пока никто не откликнулся» (`job.no_responses`) — «Поделиться»: ссылка `t.me/share/url` со ссылкой
+на заявку `t.me/<бот>?startapp=j_…` (окно выбора чата Telegram, как у «Поделиться» в Mini App без
+карточки), и «Открыть заявку» (S23, там же «Поделиться» карточкой).
+
 У срока заявки, кроме callback-кнопок, — «Открыть заявку»; у «Выбрали другого» и «Заявка закрыта
 без выбора» — «Мои отклики» (S17), у «Заявка опубликована» — «Открыть заявку»: каждая кнопка ведёт
 к объекту, о котором текст (UX-аудит №11). Слова статусов — словарь packages/i18n/GLOSSARY.md.
@@ -28,9 +32,11 @@ deals) и web_app «Посмотреть условия». Спор (6.1c): `dis
 """
 
 import html
+import re
 from collections.abc import Mapping
 from datetime import datetime
 from types import MappingProxyType
+from urllib.parse import urlencode
 from uuid import UUID
 
 from app.modules.notifications.application.dto import BroadcastContent, RenderedText
@@ -53,6 +59,7 @@ from app.platform.telegram.deeplinks import (
     LinkType,
     StartLink,
     encode_start_param,
+    startapp_url,
 )
 from app.platform.telegram.port import (
     AppButton,
@@ -60,6 +67,7 @@ from app.platform.telegram.port import (
     ButtonLine,
     CallbackButton,
     InactiveButton,
+    LinkButton,
 )
 
 RENDERED = frozenset(
@@ -71,6 +79,7 @@ RENDERED = frozenset(
         NotificationType.JOB_PUBLISHED,
         NotificationType.JOB_EXPIRING,
         NotificationType.JOB_EXPIRED,
+        NotificationType.JOB_NO_RESPONSES,
         NotificationType.RESPONSE_RECEIVED,
         NotificationType.JOB_INVITED,
         NotificationType.RESPONSE_ACCEPTED,
@@ -145,6 +154,7 @@ TITLED: Mapping[NotificationType, str] = MappingProxyType(
         NotificationType.DEAL_COMPLETION_PROMPT: "deal_completion_prompt",
         NotificationType.DEAL_AGREED: "deal_agreed",
         NotificationType.JOB_PUBLISHED: "job_published",
+        NotificationType.JOB_NO_RESPONSES: "job_no_responses",
     }
 )
 """Шаблоны «заголовок + текст с названием»: `notifications.<ключ>.title` и `.body`."""
@@ -174,15 +184,27 @@ CABINET_LINK = encode_start_param(StartLink(type=LinkType.MINE, section=LinkSect
 ALERTS_LINK = encode_start_param(StartLink(type=LinkType.MINE, section=LinkSection.ALERTS))
 KM = 1000
 """Метки ADR-0016, которые человеку называются одинаково: запрещённые товары и услуги."""
+SHARE_URL = "https://t.me/share/url"
+"""Окно выбора чата Telegram: `?url=<ссылка>&text=<подпись>` — сообщение со ссылкой в выбранный
+чат."""
+TAG = re.compile(r"<[^>]+>")
 
 
 class GettextNotificationRenderer:
     def __init__(
-        self, translator: Translator, mini_app: str | None, clock: Clock | None = None
+        self,
+        translator: Translator,
+        mini_app: str | None,
+        clock: Clock | None = None,
+        *,
+        bot_username: str | None = None,
     ) -> None:
         self._translator = translator
         self._mini_app = mini_app
         """Адрес Mini App (TELEGRAM_MINI_APP_URL); нет — сообщения без кнопок."""
+        self._bot_username = bot_username
+        """Имя бота окружения: ссылка `t.me/<бот>?startapp=…`, которой делятся в чатах; нет —
+        без «Поделиться»."""
         self._clock = clock or SystemClock()
         """«Сегодня» и «завтра» в карточке B1 — от момента показа: доставку могли отложить на
         конец тихих часов."""
@@ -326,6 +348,8 @@ class GettextNotificationRenderer:
             return message, self._proposal_buttons(params, link, locale)
         if type_ is NotificationType.REVIEW_REQUEST:
             return message, self._review_buttons(params, link, locale)
+        if type_ is NotificationType.JOB_NO_RESPONSES:
+            return message, self._share_buttons(params, link, locale)
         label = BUTTONS.get(type_)
         if type_ is NotificationType.DEAL_CANCELLED and params.get("proposal") in PROPOSAL_OUTCOMES:
             label = CHAT_BUTTON  # предложение не приняли: обсуждают дальше в чате
@@ -567,6 +591,32 @@ class GettextNotificationRenderer:
             title=self._t(f"notifications.{key}.title", locale),
             body=self._t(f"notifications.{key}.{body}", locale, title=_short(params.get("title"))),
         )
+
+    def _share_buttons(
+        self, params: Mapping[str, str], link: str | None, locale: Locale
+    ) -> tuple[ButtonLine, ...]:
+        """«Поделиться» — окно выбора чата со ссылкой на заявку и подписью «… — заявка в
+        «Соседях»» (как у «Поделиться» Mini App без карточки), и «Открыть заявку» (S23)."""
+        lines: list[ButtonLine] = []
+        if link is not None and self._bot_username:
+            # подпись — шаблон карточки без разметки: название экранировано и вернётся как было
+            title = _escape(_short(params.get("title")))
+            caption = html.unescape(TAG.sub("", self._t("share.job.text", locale, title=title)))
+            query = urlencode({"url": startapp_url(self._bot_username, link), "text": caption})
+            lines.append(
+                LinkButton(
+                    text=self._t("notifications.job_no_responses.share", locale),
+                    url=f"{SHARE_URL}?{query}",
+                )
+            )
+        if link is not None and self._mini_app is not None:
+            lines.append(
+                AppButton(
+                    text=self._t("notifications.job_matched.open", locale),
+                    url=mini_app_url(self._mini_app, link),
+                )
+            )
+        return tuple(lines)
 
     def _job_buttons(
         self,

@@ -63,6 +63,8 @@ const LOOK: Record<NotificationType, Look> = {
   'job.invited': { icon: 'send', palette: 2 },
   'job.expiring': { icon: 'clock', palette: 3 },
   'job.expired': { icon: 'clock', neutral: true },
+  // «Пока никто не откликнулся» уходит только в бот; тип — для полноты карты
+  'job.no_responses': { icon: 'share', palette: 3 },
   'response.received': { icon: 'jobs', palette: 3 },
   'response.accepted': { icon: 'check-circle' },
   'response.not_selected': { icon: 'jobs', neutral: true },

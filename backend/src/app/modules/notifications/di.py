@@ -111,5 +111,8 @@ class NotificationsProvider(Provider):
 
     @provide(scope=Scope.APP)
     def renderer(self, translator: Translator, telegram: TelegramSettings) -> NotificationRenderer:
-        """Шаблоны читаются из каталогов процесса; кнопки ведут в Mini App окружения."""
-        return GettextNotificationRenderer(translator, telegram.mini_app_url)
+        """Шаблоны читаются из каталогов процесса; кнопки ведут в Mini App окружения, ссылка
+        «Поделиться» — через его бота."""
+        return GettextNotificationRenderer(
+            translator, telegram.mini_app_url, bot_username=telegram.bot_username
+        )
