@@ -28,6 +28,7 @@ from app.modules.notifications.application.use_cases.grant_telegram_write_access
     GrantTelegramWriteAccess,
     GrantTelegramWriteAccessCommand,
 )
+from app.modules.notifications.application.use_cases.join_city_waitlist import JoinCityWaitlist
 from app.modules.notifications.application.use_cases.mark_notifications_read import (
     MarkNotificationsRead,
 )
@@ -46,8 +47,12 @@ from app.modules.notifications.infrastructure.repositories import (
     SqlNotificationRepository,
     SqlSettingsRepository,
 )
-from app.modules.notifications.tests.fakes import FakeIdentity
-from app.platform.contracts.events.notifications import GoodsWaitlistJoined, WriteAccessGranted
+from app.modules.notifications.tests.fakes import FakeGeo, FakeIdentity
+from app.platform.contracts.events.notifications import (
+    CityWaitlistJoined,
+    GoodsWaitlistJoined,
+    WriteAccessGranted,
+)
 from app.platform.i18n.translator import Translator
 from app.platform.kernel.ids import UserId, new_id
 from app.platform.kernel.localized import Locale
@@ -62,6 +67,8 @@ ON_WRITE_ACCESS = TaskRef("test.write_access_granted", WriteAccessGranted)
 """Подписка теста: WriteAccessGranted видно в procrastinate_jobs."""
 ON_GOODS_WAITLIST = TaskRef("test.goods_waitlist_joined", GoodsWaitlistJoined)
 """Подписка теста: GoodsWaitlistJoined (S58, 7.5) видно в procrastinate_jobs."""
+ON_CITY_WAITLIST = TaskRef("test.city_waitlist_joined", CityWaitlistJoined)
+"""Подписка теста: CityWaitlistJoined (S02a) видно в procrastinate_jobs."""
 
 MINI_APP = "https://app.test/"
 
@@ -86,6 +93,7 @@ class Notifications:
     queries: NotificationQueries
     mark_read: MarkNotificationsRead
     update_settings: UpdateNotificationSettings
+    join_city: JoinCityWaitlist
     block: BlockTelegramChannel
     expire: ExpireStaleDeliveries
     users: list[UserId] = field(default_factory=list)
@@ -164,6 +172,11 @@ class Notifications:
         tasks = await queued_tasks(self.session, ON_GOODS_WAITLIST.name)
         return [t.payload for t in tasks if t.payload.get("user_id") == str(user_id)]
 
+    async def city_waitlisted(self, user_id: UserId) -> list[dict[str, object]]:
+        """CityWaitlistJoined пользователя, поставленные в очередь (payload события)."""
+        tasks = await queued_tasks(self.session, ON_CITY_WAITLIST.name)
+        return [t.payload for t in tasks if t.payload.get("user_id") == str(user_id)]
+
     async def block_bot(self, user_id: UserId, at: datetime) -> None:
         """Пользователь заблокировал бота (403 — шаг 2.3b): канал выключен."""
         await self.session.execute(
@@ -185,6 +198,7 @@ def notifications(db_session: AsyncSession, procrastinate_app: procrastinate.App
     events = EventRegistry()
     events.subscribe(WriteAccessGranted, ON_WRITE_ACCESS)
     events.subscribe(GoodsWaitlistJoined, ON_GOODS_WAITLIST)
+    events.subscribe(CityWaitlistJoined, ON_CITY_WAITLIST)
     uow = make_uow(db_session, procrastinate_app, events)
     queue = ProcrastinateJobQueue(db_session, procrastinate_app)
     channels = SqlChannelRepository(db_session, uow)
@@ -217,6 +231,7 @@ def notifications(db_session: AsyncSession, procrastinate_app: procrastinate.App
         queries=NotificationQueries(query, renderer),
         mark_read=MarkNotificationsRead(uow, repository, query, clock),
         update_settings=UpdateNotificationSettings(uow, settings, query, clock),
+        join_city=JoinCityWaitlist(uow, settings, query, FakeGeo(), clock),
         block=BlockTelegramChannel(uow, channels),
         expire=ExpireStaleDeliveries(uow, repository, clock),
     )

@@ -45,6 +45,8 @@
     "quietHint": "Noću — samo hitno",
     "goodsLaunch": "Pokretanje odeljka „Stvari“",
     "goodsLaunchHint": "Bot će pisati jednom, kada se odeljak otvori",
+    "cityLaunch": "Pokretanje u novom gradu",
+    "cityLaunchHint": "Pisaćemo jednom, kada se grad otvori",
     "loading": "Učitavamo podešavanja obaveštenja",
     "loadError": "Podešavanja obaveštenja nisu učitana",
     "export": "Izvoz mojih podataka",

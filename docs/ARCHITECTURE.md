@@ -1629,9 +1629,9 @@ CREATE TABLE notifications.channels (          -- куда доставлять
   UNIQUE (kind, address)
 );
 
-CREATE TABLE notifications.preferences (      -- только отличия от умолчаний (всё включено, кроме marketing и goods_launch)
+CREATE TABLE notifications.preferences (      -- только отличия от умолчаний (всё включено, кроме marketing, goods_launch и city_launch)
   user_id     uuid NOT NULL REFERENCES identity.users(id),
-  event_group text NOT NULL,          -- job_matches / responses / messages / deals / marketing / goods_launch (account — не выключается)
+  event_group text NOT NULL,          -- job_matches / responses / messages / deals / marketing / goods_launch / city_launch (account — не выключается)
   channel     text NOT NULL,          -- telegram / in_app (push — этап 2)
   enabled     boolean NOT NULL,
   updated_at  timestamptz NOT NULL DEFAULT now(),
@@ -2561,6 +2561,7 @@ sequenceDiagram
 |---|---|
 | `GET /me/notifications?limit=&cursor=`, `POST /me/notifications/read` | Центр уведомлений: `{items: [{id, type, title, body, link, created_at, read}], next_cursor, unread_count}` на языке Accept-Language; прочитать — `{ids}` или `{all: true}` → `{unread_count}` |
 | `GET /me/notification-settings`, `PUT /me/notification-settings` | Группы × каналы (`notifications.preferences`: `{group, telegram, in_app, mandatory}`), тихие часы и час дайджеста (`notifications.user_settings`), может ли бот писать. PUT заменяет целиком; служебную группу выключить нельзя — 422 `notification_group_mandatory` |
+| `POST /me/city-waitlist` | Лист ожидания города «скоро» на S02a: `{city_id}` включает группу `city_launch` в обоих каналах, ответ — настройки, как у PUT; событие `city_waitlist_joined` с городом. Город открыт или неизвестен — 422 `city_not_upcoming` |
 | `POST /me/telegram/write-access` | Mini App сообщает, что пользователь разрешил боту писать (`requestWriteAccess`) |
 | `POST /me/push-devices`, `DELETE /me/push-devices/{id}` | Этап 2: токены APNs/FCM |
 
@@ -2617,7 +2618,7 @@ sequenceDiagram
 | `/verification-requests` | Проверка документов |
 | `/categories`, `/tags`, `/search-terms`, `/cities`, `/districts` | Справочники |
 | `/content-rules` | Стоп-слова и правила |
-| `/broadcasts` | Объявления через бота с учётом лимитов: только тем, кто включил группу согласия (`marketing`, `goods_launch`), приоритет P4, общий лимитер (2.7b — раздел SQLAdmin, API — следом) |
+| `/broadcasts` | Объявления через бота с учётом лимитов: только тем, кто включил группу согласия (`marketing`, `goods_launch`, `city_launch`), приоритет P4, общий лимитер (2.7b — раздел SQLAdmin, API — следом) |
 | `/audit-log` | Журнал действий |
 | `/feature-flags`, `/client-config` | Флаги и конфигурация клиентов |
 
@@ -2971,7 +2972,7 @@ flowchart LR
 
 - **Идемпотентность.** Уникальный `dedupe_key` (например, `response.received:{job_id}:{начало окна}`) и `UNIQUE (notification_id, channel_id)` в доставках.
 - **Как устроено (шаг 2.3a).** Подписчик события (очередь `notifications`) вызывает один use case `Notify`: в одной транзакции — уведомление, доставка в личный чат с ботом (если тип ходит в бот, группа включена и боту можно писать) и задача `notifications.send`, поставленная на `not_before` (`JobQueue.enqueue(…, not_before=…)`). Текст не хранится: `payload` — машинные параметры и код deep link, а текст собирается по шаблонам gettext на языке читателя — при показе в центре и при отправке. При отправке настройки проверяются заново: группу выключили за ночь — `suppressed`, тихие часы продлили — доставка ждёт их нового конца (срочное — нет). Отправка at-least-once: упади воркер между отправкой и записью итога, сообщение уйдёт ещё раз. Удалённому пользователю и в выключенный канал — `suppressed`.
-- **Группы S43** («группа × канал»: бот, приложение): `job_matches` — «Заявки по подпискам», `responses` — «Отклики и выбор», `messages`, `deals` — «Сделки, споры, отзывы», `marketing` — «Новости «Соседей»» (только по согласию, по умолчанию выключена), `goods_launch` — «Запуск раздела «Вещи»» (только по согласию: включает «Сообщить о запуске» на S58, на S43 — один переключатель у подписанных, 7.5). Служебная `account` — решения модерации и санкции — не выключается: без неё человек не узнает, почему контент не виден или действие запрещено. Теневой бан пользователю не сообщается.
+- **Группы S43** («группа × канал»: бот, приложение): `job_matches` — «Заявки по подпискам», `responses` — «Отклики и выбор», `messages`, `deals` — «Сделки, споры, отзывы», `marketing` — «Новости «Соседей»» (только по согласию, по умолчанию выключена), `goods_launch` — «Запуск раздела «Вещи»» (только по согласию: включает «Сообщить о запуске» на S58, на S43 — один переключатель у подписанных, 7.5), `city_launch` — «Запуск в новом городе» (так же: «Сообщить о запуске» города «скоро» на S02a, `POST /me/city-waitlist`). Служебная `account` — решения модерации и санкции — не выключается: без неё человек не узнает, почему контент не виден или действие запрещено. Теневой бан пользователю не сообщается.
 - **Дебаунс.** Несколько откликов на одну заявку за 5 минут собираются в одно сообщение (5.4): первый отклик ставит задачу на конец окна, следующие, пока она ждёт, ничего не ставят — замок очереди Procrastinate по заявке. Если сообщения в чате пришли, пока получатель активен в этом диалоге Mini App (heartbeat), уведомление не отправляется.
 - **Тихие часы** 22:00–08:00 (Europe/Belgrade, настраиваются в `notifications.user_settings`) действуют для всего, кроме сообщений чата, выбора исполнителя, `deal.proposed` и заявок со срочностью `asap`.
 - **Приоритеты** (при перегрузке первые идут раньше):

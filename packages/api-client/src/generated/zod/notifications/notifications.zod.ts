@@ -131,6 +131,7 @@ export const NotificationsGetNotificationSettingsResponse = zod.object({
           'deals',
           'marketing',
           'goods_launch',
+          'city_launch',
           'account',
         ])
         .describe('Строка настроек уведомлений S43.'),
@@ -169,7 +170,7 @@ export const NotificationsGetNotificationSettingsResponse = zod.object({
  * группу выключить нельзя — 422 `notification_group_mandatory`.
  * @summary Update Notification Settings
  */
-export const notificationsUpdateNotificationSettingsBodyGroupsMax = 7;
+export const notificationsUpdateNotificationSettingsBodyGroupsMax = 8;
 
 export const notificationsUpdateNotificationSettingsBodyQuietHoursStartDefault = `22:00:00`;
 export const notificationsUpdateNotificationSettingsBodyQuietHoursEndDefault = `08:00:00`;
@@ -190,6 +191,7 @@ export const NotificationsUpdateNotificationSettingsBody = zod
               'deals',
               'marketing',
               'goods_launch',
+              'city_launch',
               'account',
             ])
             .describe('Строка настроек уведомлений S43.'),
@@ -228,6 +230,7 @@ export const NotificationsUpdateNotificationSettingsResponse = zod.object({
           'deals',
           'marketing',
           'goods_launch',
+          'city_launch',
           'account',
         ])
         .describe('Строка настроек уведомлений S43.'),
@@ -243,6 +246,63 @@ export const NotificationsUpdateNotificationSettingsResponse = zod.object({
     time_zone: zod
       .string()
       .default(notificationsUpdateNotificationSettingsResponseQuietHoursTimeZoneDefault),
+  }),
+  digest_hour: zod.int(),
+  telegram: zod.union([
+    zod
+      .object({
+        writable: zod.boolean(),
+        granted_via: zod
+          .enum(['bot_start', 'mini_app'])
+          .describe('Как пользователь разрешил доставку по каналу.'),
+        granted_at: zod.iso.datetime({ offset: true }),
+      })
+      .describe(
+        'Канал «бот пишет в личный чат»: Mini App решает, просить ли разрешение (S21, S02c).',
+      ),
+    zod.null(),
+  ]),
+});
+
+/**
+ * «Сообщить о запуске» города «скоро» на S02a: группа `city_launch` включается в обоих
+ * каналах (лист ожидания), ответ — настройки, как у PUT. Повтор идемпотентен. Город открыт или
+ * его нет в справочнике — 422 `city_not_upcoming`.
+ * @summary Join City Waitlist
+ */
+export const notificationsJoinCityWaitlistBodyCityIdMax = 2147483647;
+
+export const NotificationsJoinCityWaitlistBody = zod.object({
+  city_id: zod.int().min(1).max(notificationsJoinCityWaitlistBodyCityIdMax),
+});
+
+export const notificationsJoinCityWaitlistResponseQuietHoursTimeZoneDefault = `Europe/Belgrade`;
+
+export const NotificationsJoinCityWaitlistResponse = zod.object({
+  groups: zod.array(
+    zod.object({
+      group: zod
+        .enum([
+          'job_matches',
+          'responses',
+          'messages',
+          'deals',
+          'marketing',
+          'goods_launch',
+          'city_launch',
+          'account',
+        ])
+        .describe('Строка настроек уведомлений S43.'),
+      telegram: zod.boolean(),
+      in_app: zod.boolean(),
+      mandatory: zod.boolean(),
+    }),
+  ),
+  quiet_hours: zod.object({
+    enabled: zod.boolean(),
+    start: zod.iso.time({}),
+    end: zod.iso.time({}),
+    time_zone: zod.string().default(notificationsJoinCityWaitlistResponseQuietHoursTimeZoneDefault),
   }),
   digest_hour: zod.int(),
   telegram: zod.union([

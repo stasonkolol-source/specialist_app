@@ -748,6 +748,9 @@ msgid "errors.case_kind_conflict"
 msgstr "Spor o dogovoru se rešava sa ishodom dogovora — komandom dispute-resolve."
 
 # Обавештења (DEVELOPMENT_PLAN 2.3a, ARCHITECTURE §11.3)
+msgid "errors.city_not_upcoming"
+msgstr "Ovaj grad je već otvoren ili ga nema na spisku — lista čekanja postoji samo za gradove „uskoro“."
+
 msgid "errors.notification_group_mandatory"
 msgstr "Službena obaveštenja ne mogu da se isključe: tiču se odluka moderacije i ograničenja naloga."
 

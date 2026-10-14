@@ -40,6 +40,7 @@ export * from './categoryCountsOut.ts';
 export * from './categoryOut.ts';
 export * from './cityOut.ts';
 export * from './cityStatus.ts';
+export * from './cityWaitlistIn.ts';
 export * from './clientConfigOut.ts';
 export * from './clientConfigOutFlags.ts';
 export * from './clientConfigOutLegalDocuments.ts';

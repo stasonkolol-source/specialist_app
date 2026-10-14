@@ -52,7 +52,11 @@ from app.platform.contracts.events.jobs import (
 )
 from app.platform.contracts.events.messaging import ContactShared, ConversationStarted, MessageSent
 from app.platform.contracts.events.moderation import ReportCreated
-from app.platform.contracts.events.notifications import GoodsWaitlistJoined, WriteAccessGranted
+from app.platform.contracts.events.notifications import (
+    CityWaitlistJoined,
+    GoodsWaitlistJoined,
+    WriteAccessGranted,
+)
 from app.platform.contracts.events.reviews import ReviewPublished
 from app.platform.contracts.events.specialists import (
     ProfilePublished,
@@ -95,6 +99,7 @@ CAPTURE_ALERTS_MATCHED = TaskRef("analytics.capture_alerts_matched", AlertsMatch
 CAPTURE_GOODS_WAITLIST_JOINED = TaskRef(
     "analytics.capture_goods_waitlist_joined", GoodsWaitlistJoined
 )
+CAPTURE_CITY_WAITLIST_JOINED = TaskRef("analytics.capture_city_waitlist_joined", CityWaitlistJoined)
 CAPTURE_PRO_WAITLIST_JOINED = TaskRef("analytics.capture_pro_waitlist_joined", ProWaitlistJoined)
 SECOND_PASS: Final = timedelta(hours=24)
 FORGET_PERSON = TaskRef("analytics.forget_person", UserDeleted)
@@ -507,6 +512,23 @@ async def capture_goods_waitlist_joined(
             user_id=event.user_id,
             occurred_at=event.occurred_at,
             source_event_id=event.event_id,
+            bot_writable=event.bot_writable,
+        )
+    )
+
+
+@subscriber(CityWaitlistJoined, CAPTURE_CITY_WAITLIST_JOINED)
+async def capture_city_waitlist_joined(
+    event: CityWaitlistJoined, analytics: FromDishka[Analytics]
+) -> None:
+    """Лист ожидания города «скоро» (S02a): спрос на следующий город."""
+    await analytics.capture(
+        analytics_event(
+            EventName.CITY_WAITLIST_JOINED,
+            user_id=event.user_id,
+            occurred_at=event.occurred_at,
+            source_event_id=event.event_id,
+            city=event.city_id,
             bot_writable=event.bot_writable,
         )
     )

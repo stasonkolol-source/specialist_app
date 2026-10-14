@@ -79,8 +79,8 @@ def test_empty_window_is_invalid() -> None:
 
 def test_everything_is_on_by_default_except_opt_in_groups() -> None:
     preferences = Preferences()
-    # новости и запуск «Вещей» — только по согласию: кнопка S58 или отметка S43
-    opt_in = {EventGroup.MARKETING, EventGroup.GOODS_LAUNCH}
+    # новости и запуски «Вещей» и города — только по согласию: кнопки S58, S02a или отметка S43
+    opt_in = {EventGroup.MARKETING, EventGroup.GOODS_LAUNCH, EventGroup.CITY_LAUNCH}
 
     for group in EventGroup:
         for channel in Channel:

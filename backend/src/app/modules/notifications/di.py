@@ -29,6 +29,7 @@ from app.modules.notifications.application.use_cases.forget_recipient import For
 from app.modules.notifications.application.use_cases.grant_telegram_write_access import (
     GrantTelegramWriteAccess,
 )
+from app.modules.notifications.application.use_cases.join_city_waitlist import JoinCityWaitlist
 from app.modules.notifications.application.use_cases.mark_notifications_read import (
     MarkNotificationsRead,
 )
@@ -88,6 +89,7 @@ class NotificationsProvider(Provider):
     send_delivery = provide(SendDelivery)
     mark_read = provide(MarkNotificationsRead)
     update_settings = provide(UpdateNotificationSettings)
+    join_city_waitlist = provide(JoinCityWaitlist)
     toggle_bot_setting = provide(ToggleBotSetting)
     recipients = provide(SqlRecipientData, provides=RecipientData)
     forget_recipient = provide(ForgetRecipient)

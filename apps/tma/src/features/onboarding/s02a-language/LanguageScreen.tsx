@@ -1,7 +1,8 @@
 // S02a «Язык и город», шаг 1 из 3 (DEVELOPMENT_PLAN 1.5b). Язык — сразу во всём интерфейсе, без
 // перезагрузки: по нему же перечитываются названия городов. На сервер выбор уходит по MainButton
 // «Далее» одним PATCH /me {ui_locale, home_city_id}. English и города «скоро» видны, но не
-// выбираются. Первый шаг: «Назад» нет, в шапке Telegram — «Закрыть».
+// выбираются: нажатый город «скоро» открывает под списком лист ожидания (CityWaitlist), а выбранным
+// остаётся пилотный. Первый шаг: «Назад» нет, в шапке Telegram — «Закрыть».
 import type { CityOut } from '@sosed/api-client';
 import { useIdentityGetMe, useIdentityUpdateMe } from '@sosed/api-client';
 import { defaultCity, isSelectableCity, useCities } from '@sosed/hooks';
@@ -9,12 +10,13 @@ import type { Locale } from '@sosed/i18n';
 import { LOCALES, LOCALE_LABELS, UPCOMING_LOCALES, useLocale, useTranslation } from '@sosed/i18n';
 import { usePlatform } from '@sosed/platform';
 import { Badge, Button, Option, RadioGroup, SectionTitle, Skeleton } from '@sosed/ui-web';
-import { useId } from 'react';
+import { useId, useState } from 'react';
 
 import { SaveError } from '../shared/SaveError.tsx';
 import { StepHeader } from '../shared/StepHeader.tsx';
 import { useOnboardingFlow, useStepButton } from '../shared/flow.ts';
 import { useOnboardingStore } from '../shared/store.ts';
+import { CityWaitlist } from './CityWaitlist.tsx';
 
 export function LanguageScreen() {
   const { t, i18n } = useTranslation('onboarding');
@@ -28,6 +30,9 @@ export function LanguageScreen() {
   const setDraft = useOnboardingStore((state) => state.set);
   const cityId =
     draftCity ?? (cities.data ? defaultCity(cities.data, me.data?.home_city_id ?? null) : null);
+  // город «скоро», который нажали: лист ожидания под списком; выбор города он не меняет
+  const [upcomingId, setUpcomingId] = useState<number | null>(null);
+  const upcoming = cities.data?.find((city) => city.id === upcomingId) ?? null;
 
   const update = useIdentityUpdateMe({
     mutation: { onSuccess: (next) => flow.saved('language', next) },
@@ -43,9 +48,10 @@ export function LanguageScreen() {
     platform.haptics.selection();
     void i18n.changeLanguage(next);
   };
-  const chooseCity = (id: number) => {
+  const chooseCity = (city: CityOut) => {
     platform.haptics.selection();
-    setDraft({ cityId: id });
+    if (isSelectableCity(city)) setDraft({ cityId: city.id });
+    else setUpcomingId(city.id);
   };
 
   const languageTitle = useId();
@@ -97,7 +103,7 @@ export function LanguageScreen() {
                 key={city.id}
                 city={city}
                 checked={city.id === cityId}
-                onChoose={() => chooseCity(city.id)}
+                onChoose={() => chooseCity(city)}
               />
             ))}
           </RadioGroup>
@@ -121,6 +127,8 @@ export function LanguageScreen() {
             <Skeleton screen radius="card" className="h-14" />
           </div>
         )}
+        {/* живая область — до нажатия: появившийся лист ожидания скринридер прочитает */}
+        <div aria-live="polite">{upcoming && <CityWaitlist city={upcoming} />}</div>
       </div>
 
       {update.isError && <SaveError error={update.error} />}
@@ -155,14 +163,14 @@ function CityOption({
 }) {
   const { t } = useTranslation('onboarding');
   const selectable = isSelectableCity(city);
+  // город «скоро» нажимается, но не выбирается: нажатие открывает лист ожидания
   return (
     <Option
       control="start"
-      disabled={!selectable}
       title={<span className="font-semibold">{city.name}</span>}
       description={selectable ? t('city.pilot') : undefined}
       trailing={selectable ? undefined : <Badge>{t('city.soon')}</Badge>}
-      checked={checked}
+      checked={selectable && checked}
       onChange={onChoose}
     />
   );

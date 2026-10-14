@@ -10,7 +10,13 @@
     "pilot": "Već radimo",
     "soon": "uskoro",
     "loading": "Učitavamo gradove",
-    "loadError": "Gradovi nisu učitani"
+    "loadError": "Gradovi nisu učitani",
+    "waitlist": {
+      "text": "{city} uskoro. Javićemo vam kada otvorimo.",
+      "notify": "Obavesti me o pokretanju",
+      "done": "Gotovo! Javićemo vam kada se {city} otvori.",
+      "error": "Prijava nije uspela. Pokušajte ponovo."
+    }
   },
   "intent": {
     "title": "Šta želite?",

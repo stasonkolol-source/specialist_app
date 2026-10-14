@@ -240,6 +240,7 @@ describe('S43 notifications', () => {
         { group: 'deals', telegram: true, in_app: true },
         { group: 'marketing', telegram: false, in_app: false },
         { group: 'goods_launch', telegram: false, in_app: false },
+        { group: 'city_launch', telegram: false, in_app: false },
       ],
       quiet_hours: { enabled: true, start: '22:00:00', end: '08:00:00' },
       digest_hour: 9,
@@ -278,6 +279,35 @@ describe('S43 notifications', () => {
 
     await screen.findByRole('checkbox', { name: 'Сообщения — в боте' });
     expect(screen.queryByRole('switch', { name: 'Запуск раздела «Вещи»' })).toBeNull();
+    expect(screen.queryByRole('switch', { name: 'Запуск в новом городе' })).toBeNull();
+    // листы ожидания — не строки с отметками по каналам
+    expect(screen.queryByRole('checkbox', { name: /Запуск/ })).toBeNull();
+  });
+
+  it('unsubscribes from a city launch (S02a waitlist) with its own switch', async () => {
+    userBackend(ME);
+    const backend = notificationBackend({
+      initial: {
+        ...NOTIFICATION_SETTINGS,
+        groups: NOTIFICATION_SETTINGS.groups.map((row) =>
+          row.group === 'city_launch' ? { ...row, telegram: true, in_app: true } : row,
+        ),
+      },
+    });
+    startApp('/settings');
+    const launch = await screen.findByRole('switch', { name: 'Запуск в новом городе' });
+    expect(screen.getByText('Напишем один раз, когда город откроется')).toBeTruthy();
+    expect(screen.queryByRole('switch', { name: 'Запуск раздела «Вещи»' })).toBeNull();
+
+    await click(launch);
+
+    await waitFor(() => expect(backend.puts).toHaveLength(1));
+    expect(backend.puts[0]?.groups).toContainEqual({
+      group: 'city_launch',
+      telegram: false,
+      in_app: false,
+    });
+    expect(checked('switch', 'Запуск в новом городе')).toBe('false');
   });
 
   it('unsubscribes from the «Вещи» launch with one switch and keeps the row', async () => {

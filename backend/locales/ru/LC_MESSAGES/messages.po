@@ -747,6 +747,9 @@ msgid "errors.case_kind_conflict"
 msgstr "Спор по сделке решается с исходом сделки — командой dispute-resolve."
 
 # Уведомления (DEVELOPMENT_PLAN 2.3a, ARCHITECTURE §11.3)
+msgid "errors.city_not_upcoming"
+msgstr "Этот город уже открыт или его нет в списке — лист ожидания только у городов «скоро»."
+
 msgid "errors.notification_group_mandatory"
 msgstr "Служебные уведомления нельзя выключить: они о решениях модерации и ограничениях аккаунта."
 
