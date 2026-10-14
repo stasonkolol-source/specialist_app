@@ -195,6 +195,14 @@
     "invites": "Utisci pre platforme",
     "invitesValue": "{taken} od {limit}"
   },
+  "phone": {
+    "title": "Poverenje",
+    "verify": "Potvrdi telefon",
+    "verifyHint": "Jedan dodir — Telegram će poslati broj. Klijenti će videti oznaku, ali ne i sam broj",
+    "verified": "Telefon potvrđen · klijenti vide oznaku",
+    "declined": "Broj nije poslat — oznake za sada nema. Možete ga potvrditi u bilo kom trenutku",
+    "failed": "Potvrda telefona nije uspela. Pokušajte ponovo"
+  },
   "availability": {
     "title": "Dostupnost",
     "today": "Dostupan danas",

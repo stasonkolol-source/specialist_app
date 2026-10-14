@@ -5,6 +5,7 @@
 
 from collections.abc import Mapping
 from typing import cast
+from urllib.parse import parse_qs, urlsplit
 from uuid import UUID
 
 import pytest
@@ -29,7 +30,7 @@ from app.platform.telegram.deeplinks import (
     encode_start_param,
     parse_start_param,
 )
-from app.platform.telegram.port import AppButton, Button, ButtonLine, CallbackButton
+from app.platform.telegram.port import AppButton, Button, ButtonLine, CallbackButton, LinkButton
 
 pytestmark = pytest.mark.unit
 
@@ -313,6 +314,61 @@ def test_expired_job_after_three_extensions_can_only_be_closed(
     assert "Продлевать её больше нельзя" in text
     assert callbacks(buttons) == [("Закрыть", CallbackData(CallbackAction.JOB_CLOSE, JOB_ID))]
     assert opens(buttons) == [("Открыть заявку", f"{MINI_APP}?startapp={JOB_LINK}")]
+
+
+BOT = "sosedi_test_bot"
+
+
+def test_quiet_job_asks_to_share_it_in_the_district_chat() -> None:
+    """Час без откликов (аудит клиента п. 1): «Поделиться» — окно выбора чата Telegram со ссылкой
+    на заявку и подписью карточки, «Открыть заявку» — S23."""
+    renderer = GettextNotificationRenderer(Translator.load(), MINI_APP, bot_username=BOT)
+    params = {"job_id": str(JOB_ID), "title": "Люстра <b>и</b> бра"}
+
+    text, buttons = renderer.telegram(
+        NotificationType.JOB_NO_RESPONSES, params, JOB_LINK, Locale.RU
+    )
+
+    assert text == (
+        "<b>Откликов пока нет</b>\nПока никто не откликнулся на «Люстра &lt;b&gt;и&lt;/b&gt; бра»."
+        " Поделитесь заявкой в чате района — так её увидят быстрее."
+    )
+    share, open_job = flat(buttons)
+    assert isinstance(share, LinkButton)
+    assert share.text == "Поделиться"
+    url = urlsplit(share.url)
+    assert f"{url.scheme}://{url.netloc}{url.path}" == "https://t.me/share/url"
+    query = parse_qs(url.query)
+    assert query["url"] == [f"https://t.me/{BOT}?startapp={JOB_LINK}"]
+    assert query["text"] == ["Люстра <b>и</b> бра — заявка в «Соседях»"]
+    assert (open_job.text, getattr(open_job, "url", None)) == (
+        "Открыть заявку",
+        f"{MINI_APP}?startapp={JOB_LINK}",
+    )
+
+
+@pytest.mark.parametrize("locale", SCRIPTS)
+def test_quiet_job_on_three_scripts(locale: Locale) -> None:
+    renderer = GettextNotificationRenderer(Translator.load(), MINI_APP, bot_username=BOT)
+    params = {"job_id": str(JOB_ID), "title": "Повесить люстру"}
+
+    text, buttons = renderer.telegram(NotificationType.JOB_NO_RESPONSES, params, JOB_LINK, locale)
+
+    assert "notifications." not in text
+    assert "{" not in text
+    assert len(flat(buttons)) == 2
+    assert all("notifications." not in b.text for b in flat(buttons))
+
+
+def test_quiet_job_without_the_bot_name_only_opens_the_job(
+    renderer: GettextNotificationRenderer,
+) -> None:
+    params = {"job_id": str(JOB_ID), "title": "Повесить люстру"}
+
+    _, buttons = renderer.telegram(NotificationType.JOB_NO_RESPONSES, params, JOB_LINK, Locale.RU)
+
+    assert opens(buttons) == [("Открыть заявку", f"{MINI_APP}?startapp={JOB_LINK}")]
+    assert len(flat(buttons)) == 1
 
 
 @pytest.mark.parametrize("locale", SCRIPTS)

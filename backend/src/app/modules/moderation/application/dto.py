@@ -2,7 +2,7 @@
 
 from collections.abc import Mapping
 from dataclasses import dataclass
-from datetime import datetime
+from datetime import datetime, timedelta
 from uuid import UUID
 
 from app.modules.deals.api import DealBrief, DisputeSummary
@@ -188,6 +188,8 @@ class PersonContext:
     """Основной район выезда специалиста или район заявки клиента."""
     joined_at: datetime | None = None
     trust_level: int | None = None
+    phone_verified: bool | None = None
+    """Бейдж «Телефон подтверждён» — да или нет; сам номер в карточку не попадает."""
     deals_done: int | None = None
     """Завершённые сделки в любой роли; None — не узнали (deals недоступен)."""
     complaints_open: int = 0
@@ -282,3 +284,30 @@ class CaseContext:
     photo: CasePhoto | None = None
     photo_hidden: bool = False
     """Фото скрыто автоматически (P0) или модератором: в чат его не шлём — смотреть в админке."""
+
+
+@dataclass(frozen=True, slots=True, kw_only=True)
+class QuietJob:
+    """Заявка без откликов — карточка concierge в чате модераторов (DEVELOPMENT_PLAN 7.1): что,
+    где, бюджет и когда, сколько ей уже никто не ответил и скольким подписчикам она ушла. Без
+    клиента, описания, адреса и точки — как у карточки кейса, только то, что видят исполнители."""
+
+    job_id: UUID
+    title: str
+    category: str | None
+    """Категория на языке чата модераторов."""
+    place: str | None
+    """«Лиман, Нови-Сад»: район, как его видят исполнители, и город."""
+    budget_type: str
+    budget_min: int | None
+    budget_max: int | None
+    budget_unit: str
+    urgency: str
+    preferred_from: datetime | None
+    preferred_to: datetime | None
+    waited: timedelta
+    """Сколько прошло с первой публикации."""
+    notified: int
+    """Скольким подписчикам заявка ушла (5.7)."""
+    pending: int
+    """Отклики, которые ещё ждут проверки: клиент их не видит."""

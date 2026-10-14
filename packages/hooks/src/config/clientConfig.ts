@@ -12,6 +12,8 @@ export const FLAGS = {
   goodsSegment: 'goods.segment',
   /** Техработы: экран S49 вместо приложения, API отвечает 503 `maintenance` (1.5a). */
   maintenance: 'platform.maintenance',
+  /** «Подтвердить телефон» (S33, S32c, S43): включают вместе с редакцией 2 политики. */
+  phoneVerification: 'identity.phone_verification',
 } as const;
 
 export type FlagKey = (typeof FLAGS)[keyof typeof FLAGS];

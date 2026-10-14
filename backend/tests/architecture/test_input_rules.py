@@ -32,6 +32,7 @@ NOT_FREE_TEXT = {
     ("UploadedPartIn", "etag"),  # ETag хранилища: сверяет S3
     ("ContactShareIn", "init_data"),  # подписано Telegram: правка ломает подпись
     ("ContactShareIn", "contact"),
+    ("PhoneIn", "contact"),  # ответ requestContact: подписан Telegram
 }
 
 

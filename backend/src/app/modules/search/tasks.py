@@ -1,7 +1,8 @@
 """Задачи search (ADR-0020 §3; DEVELOPMENT_PLAN 4.1).
 
-- Подписчики событий профиля, прайса, каталога, санкций, удаления, готового фото профиля и
-  рейтинга (отзывы, 7.2) — отмечают профили к пересборке read-model.
+- Подписчики событий профиля, прайса, каталога, санкций, удаления, готового фото профиля,
+  рейтинга (отзывы, 7.2) и подтверждённого телефона (бейдж в карточке) — отмечают профили к
+  пересборке read-model.
 - `search.flush_index` — пересобрать отмеченные пачкой (одна ждущая задача на всех).
 - `search.reindex_profiles` — отметить профили позже: конец срочной санкции автора.
 - `search.reconcile_index` — ночью: сверка read-model с источником.
@@ -19,6 +20,7 @@ from app.modules.search.application.ports import (
     ON_AVAILABILITY,
     ON_CATALOG,
     ON_MEDIA_READY,
+    ON_PHONE_VERIFIED,
     ON_PRICE_LIST,
     ON_PROFILE_DELETED,
     ON_PROFILE_HIDDEN,
@@ -51,6 +53,7 @@ from app.modules.search.application.use_cases.refresh_response_times import (
 )
 from app.platform.contracts.events.catalog import CatalogChanged
 from app.platform.contracts.events.identity import (
+    PhoneVerified,
     UserDeleted,
     UserRestricted,
     UserRestrictionsLifted,
@@ -80,7 +83,7 @@ type ProfileEvent = (
     | PriceListChanged
     | RatingChanged
 )
-type UserEvent = UserRestricted | UserRestrictionsLifted | UserDeleted
+type UserEvent = UserRestricted | UserRestrictionsLifted | UserDeleted | PhoneVerified
 
 
 async def _profile(mark: MarkProfiles, event: ProfileEvent) -> None:
@@ -133,6 +136,12 @@ async def on_user_lifted(event: UserRestrictionsLifted, mark: FromDishka[MarkPro
 
 @subscriber(UserDeleted, ON_USER_DELETED)
 async def on_user_deleted(event: UserDeleted, mark: FromDishka[MarkProfiles]) -> None:
+    await _user(mark, event)
+
+
+@subscriber(PhoneVerified, ON_PHONE_VERIFIED)
+async def on_phone_verified(event: PhoneVerified, mark: FromDishka[MarkProfiles]) -> None:
+    """Телефон подтверждён: бейдж в карточке выдачи (только показ — в ранжирование не входит)."""
     await _user(mark, event)
 
 

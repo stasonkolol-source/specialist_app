@@ -16,6 +16,7 @@ from app.modules.identity.domain.trust import TrustLevel
 from app.modules.identity.domain.user import AuthProvider, User, UserStatus
 from app.modules.identity.errors import (
     ConcurrentLoginError,
+    PhoneTakenError,
     SessionNotFoundError,
     UnknownCityError,
     UserNotFoundError,
@@ -44,6 +45,7 @@ from app.platform.kernel.principal import Platform, Role
 USER_CONSTRAINTS: ConstraintErrors = {
     "uq_auth_identities_provider_subject": ConcurrentLoginError,
     "fk_users_home_city_id_cities": UnknownCityError,
+    "uq_users_phone_e164": PhoneTakenError,
 }
 
 
@@ -108,6 +110,17 @@ class SqlUserRepository:
         )
         rows = (await self._session.execute(stmt)).scalars().all()
         return [self._tracked(user_to_domain(row)) for row in rows]
+
+    async def phone_taken(self, phone_e164: str, *, by_other_than: UserId) -> bool:
+        # те же условия, что у частичного индекса uq_users_phone_e164: удалённые номера не держат
+        stmt = select(
+            exists().where(
+                UserRow.phone_e164 == phone_e164,
+                UserRow.deleted_at.is_(None),
+                UserRow.id != by_other_than,
+            )
+        )
+        return bool((await self._session.execute(stmt)).scalar())
 
     async def add(self, user: User) -> None:
         self._uow.require_active()

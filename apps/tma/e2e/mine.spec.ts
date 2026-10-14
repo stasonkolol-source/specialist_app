@@ -1,7 +1,9 @@
 // Свои заявки клиента S22 и S23 (DEVELOPMENT_PLAN 5.6) на фейке backend: сегмент «Мои заявки»
 // вкладки «Заявки» — люстра с «3 отклика — выберите исполнителя», уборка ждёт откликов,
 // закрытая — в архиве, как на артборде; своя заявка — статус, места, отклики карточками. Два новых
-// отклика люстры — и счётчиком на вкладке «Заявки» и сегменте «Мои заявки» (OWN-3).
+// отклика люстры — и счётчиком на вкладке «Заявки» и сегменте «Мои заявки» (OWN-3). Уборка без
+// откликов — «Разослали N специалистам рядом», главное действие «Поделиться заявкой» и второе —
+// «Пригласить специалистов» (аудит клиента п. 1).
 // Скриншоты × тема × язык, axe-core. Имена скриншотов начинаются с кода артборда: make
 // design-compare кладёт их рядом с эталоном.
 import { expect, test } from '@playwright/test';
@@ -19,6 +21,8 @@ const LOCALES = [
     mine: 'Мои заявки',
     waiting: '3 отклика — выберите исполнителя',
     first: 'Алексей Морозов',
+    notified: /^Разослали 7\sспециалистам\sрядом\./u,
+    share: 'Поделиться заявкой',
   },
   {
     locale: 'sr-Latn',
@@ -27,6 +31,8 @@ const LOCALES = [
     mine: 'Moji zahtevi',
     waiting: '3 ponude — izaberite izvođača',
     first: 'Алексей Морозов',
+    notified: /^Zahtev je stigao do\s7\sstručnjaka\su\sblizini\./u,
+    share: 'Podeli zahtev',
   },
 ] as const;
 
@@ -63,4 +69,30 @@ for (const theme of THEMES) {
       await snap(`S23-manage-job-${theme}-${l.locale}.png`);
     });
   }
+}
+
+for (const l of LOCALES) {
+  test(`S23 без откликов light ${l.locale}: поделиться заявкой и пригласить`, async ({ page }) => {
+    await page.clock.setFixedTime(new Date(E2E_NOW));
+    const watch = await open(page, `theme=light&lang=${l.telegram}`, {
+      signedIn: true,
+      me: { ...ME, ui_locale: l.locale },
+      jobs: new JobsBackend().seedMine(),
+      chat: new ChatBackend(),
+    });
+
+    await openTab(page, l.tab);
+    await page.getByRole('link', { name: l.mine }).click();
+    await page.getByRole('link', { name: /Генеральная уборка/ }).click();
+    await expect(page.getByRole('heading', { name: /Генеральная уборка/, level: 1 })).toBeVisible();
+    await expect(page.getByText(l.notified)).toBeVisible();
+    await expect(page.getByRole('button', { name: l.share })).toBeVisible();
+
+    expect(real(watch.problems)).toEqual([]);
+    expect(watch.unexpectedApi).toEqual([]);
+    await expect(page).toHaveScreenshot(`S23-no-responses-light-${l.locale}.png`, {
+      fullPage: true,
+    });
+    await expectNoAxeViolations(page);
+  });
 }

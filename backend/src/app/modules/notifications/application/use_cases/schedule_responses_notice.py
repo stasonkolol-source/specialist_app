@@ -3,20 +3,30 @@
 ничего не ставят — замок очереди по заявке. Три отклика за пять минут — одно уведомление
 «Новых откликов: 3». Самый первый отклик на заявку пять минут не ждёт: его окно —
 FIRST_RESPONSE_DELAY, только на автопроверку текста.
+
+Клиенту «Пока никто не откликнулся» (`job.no_responses`), если оно ещё ждёт конца тихих часов, —
+уже неправда: доставка не уходит (`suppressed`, `responded`).
 """
 
 from dataclasses import dataclass
 from datetime import datetime
+from typing import Final
 from uuid import UUID
 
 from app.modules.notifications.application.ports import (
     FIRST_RESPONSE_DELAY,
+    NO_RESPONSES_PREFIX,
     NOTIFY_RESPONSES,
     RESPONSES_DEBOUNCE,
+    NotificationRepository,
     ResponsesWindow,
 )
 from app.platform.db.port import UnitOfWork
+from app.platform.kernel.clock import Clock
 from app.platform.queue.port import JobQueue
+
+RESPONDED: Final = "responded"
+"""Причина `suppressed`: на заявку откликнулись, пока «никто не откликнулся» ждало утра."""
 
 
 @dataclass(frozen=True, slots=True, kw_only=True)
@@ -29,12 +39,22 @@ class ScheduleResponsesNoticeCommand:
 
 
 class ScheduleResponsesNotice:
-    def __init__(self, uow: UnitOfWork, queue: JobQueue) -> None:
+    def __init__(
+        self,
+        uow: UnitOfWork,
+        queue: JobQueue,
+        notifications: NotificationRepository,
+        clock: Clock,
+    ) -> None:
         self._uow, self._queue = uow, queue
+        self._notifications, self._clock = notifications, clock
 
     async def __call__(self, cmd: ScheduleResponsesNoticeCommand) -> None:
         delay = FIRST_RESPONSE_DELAY if cmd.first else RESPONSES_DEBOUNCE
         async with self._uow:
+            await self._notifications.suppress_queued(
+                f"{NO_RESPONSES_PREFIX}{cmd.job_id}", error=RESPONDED, now=self._clock.now()
+            )
             await self._queue.enqueue(
                 NOTIFY_RESPONSES,
                 ResponsesWindow(job_id=cmd.job_id, since=cmd.at, first=cmd.first),

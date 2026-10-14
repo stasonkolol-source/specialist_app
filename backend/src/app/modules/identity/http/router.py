@@ -47,6 +47,10 @@ from app.modules.identity.application.use_cases.update_profile import (
     UpdateProfile,
     UpdateProfileCommand,
 )
+from app.modules.identity.application.use_cases.verify_phone import (
+    VerifyPhone,
+    VerifyPhoneCommand,
+)
 from app.modules.identity.domain.deletion import DeletionSource
 from app.modules.identity.domain.session import SessionId
 from app.modules.identity.errors import UserNotFoundError
@@ -56,6 +60,7 @@ from app.modules.identity.http.schemas import (
     DeletionOut,
     MeOut,
     MeUpdateIn,
+    PhoneIn,
     PrivacyIn,
     RefreshIn,
     TokensOut,
@@ -166,6 +171,24 @@ async def update_privacy(
 ) -> MeOut:
     """«Показывать после договорённости» (S43): свой Telegram второй стороне сделки."""
     await update(UpdatePrivacyCommand(actor_id=principal.user_id, show_telegram=body.show_telegram))
+    return await _me(access, principal.user_id, response)
+
+
+@router.post("/me/phone", dependencies=AUTHENTICATED)
+@inject
+async def verify_phone(
+    body: PhoneIn,
+    principal: FromDishka[Principal],
+    verify: FromDishka[VerifyPhone],
+    access: FromDishka[AccessChecker],
+    response: Response,
+) -> MeOut:
+    """«Подтвердить телефон» (S33, S32c, S43): подписанный ответ `requestContact` → бейдж
+    «Телефон подтверждён» и уровень доверия 1. Номер нигде не показывается и в ответе его нет.
+    Повтор с тем же номером — 200 без изменений; номер в другом аккаунте — 409 `phone_taken`;
+    подпись не та, устарела или контакт чужой — 422 `invalid_phone_contact`. Флаг
+    `identity.phone_verification` выключен — 404 `phone_verification_unavailable`."""
+    await verify(VerifyPhoneCommand(actor_id=principal.user_id, contact=body.contact))
     return await _me(access, principal.user_id, response)
 
 

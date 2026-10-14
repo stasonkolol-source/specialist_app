@@ -100,6 +100,37 @@ class ResponsesNotice:
 
 
 @dataclass(frozen=True, slots=True, kw_only=True)
+class JobReach:
+    """Заявка и её отклик на рынке — «заявка без откликов не висит в тишине»: карточка concierge
+    в чат модераторов через 20 минут и клиенту «Поделитесь в чате района» через час."""
+
+    client_id: UserId
+    title: str
+    status: str
+    direct: bool
+    """Прямой запрос (5.6): его видят только приглашённые — делиться и рассылать нечего."""
+    category_id: CategoryId
+    city_id: CityId
+    district_id: DistrictId | None
+    budget_type: str
+    budget_min: int | None
+    budget_max: int | None
+    budget_unit: str
+    urgency: str
+    preferred_from: datetime | None
+    preferred_to: datetime | None
+    published_at: datetime | None
+    """Первая публикация: от неё считается «без откликов N мин»."""
+    expires_at: datetime | None
+    notified_count: int
+    """Скольким подписчикам заявка ушла — карточкой или подборкой (5.7)."""
+    responses: int
+    """Видимые клиенту отклики: прошли проверку, не отозваны."""
+    pending_responses: int
+    """Отклики, которые ещё ждут проверки: клиент их пока не видит."""
+
+
+@dataclass(frozen=True, slots=True, kw_only=True)
 class TemplateRef:
     """Шаблон отклика для кнопки «Откликнуться шаблоном» в уведомлении."""
 
@@ -264,6 +295,11 @@ class JobsApi(Protocol):
 
     async def responses_notice(self, job_id: UUID) -> ResponsesNotice | None:
         """Название, статус и непросмотренные отклики заявки; None — нет такой или удалена."""
+        ...
+
+    async def job_reach(self, job_id: UUID) -> JobReach | None:
+        """Заявка и сколько на неё откликнулись и скольким её разослали; None — нет такой или
+        удалена."""
         ...
 
     async def job_titles(self, job_ids: Collection[UUID]) -> dict[UUID, str]:

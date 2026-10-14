@@ -190,11 +190,16 @@ export const WRITE_ACCESS: TelegramChannelOut = {
   granted_at: '2026-09-27T10:13:00Z',
 };
 
-/** Как client-config dev-стенда: черновики draft-1 правил и политики (0.27), флаг техработ выключен.
+/** Как client-config dev-стенда: черновики draft-1 правил и политики (0.27), флаг техработ выключен,
+ *  «Подтвердить телефон» — тоже (как в проде до редакции 2 политики, platform_0008).
  *  Без текстов — Mini App просит конфиг с `?legal_documents=false`, тексты — LEGAL_DOCUMENTS. */
 export const CLIENT_CONFIG: ClientConfigOut = {
   min_versions: { tma: '0.1.0' },
-  flags: { 'goods.segment': true, 'platform.maintenance': false },
+  flags: {
+    'goods.segment': true,
+    'platform.maintenance': false,
+    'identity.phone_verification': false,
+  },
   legal_versions: { terms: 'draft-1', privacy: 'draft-1' },
   legal_documents: {},
   // K23, Q25: контакт поддержки не назначен — S43 и S47 показывают «скоро»

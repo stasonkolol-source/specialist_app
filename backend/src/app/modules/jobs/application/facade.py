@@ -1,6 +1,6 @@
 """Реализация JobsApi (ADR-0020 §6): заявка и отклик для конвейера модерации, публикация и отказ;
 краткие сведения о сроке, откликах, приглашении и подписках (карточка B1, подборка) — для
-уведомлений."""
+уведомлений; охват заявки без откликов — для concierge и «Поделитесь» клиенту."""
 
 from collections.abc import Collection, Mapping
 from typing import Final
@@ -16,6 +16,7 @@ from app.modules.jobs.api import (
     InviteNotice,
     JobBrief,
     JobForReview,
+    JobReach,
     JobsApi,
     MatchNotice,
     OwnerResponseView,
@@ -150,6 +151,33 @@ class JobsFacade(JobsApi):
             title=job.title,
             status=job.status.value,
             unseen=await self._queries.unseen_responses(JobId(job_id)),
+        )
+
+    async def job_reach(self, job_id: UUID) -> JobReach | None:
+        job = await self._queries.view(JobId(job_id))
+        if job is None:
+            return None
+        counts = await self._queries.response_counts(job.id)
+        return JobReach(
+            client_id=job.client_id,
+            title=job.title,
+            status=job.status.value,
+            direct=job.visibility is Visibility.DIRECT,
+            category_id=job.category_id,
+            city_id=job.city_id,
+            district_id=job.district_id,
+            budget_type=job.budget_type.value,
+            budget_min=job.budget_min,
+            budget_max=job.budget_max,
+            budget_unit=job.budget_unit.value,
+            urgency=job.urgency.value,
+            preferred_from=job.preferred_from,
+            preferred_to=job.preferred_to,
+            published_at=job.published_at,
+            expires_at=job.expires_at,
+            notified_count=job.notified_count,
+            responses=counts.visible,
+            pending_responses=counts.pending,
         )
 
     async def job_titles(self, job_ids: Collection[UUID]) -> dict[UUID, str]:

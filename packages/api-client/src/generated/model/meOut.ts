@@ -14,6 +14,7 @@ export interface MeOut {
   display_name: string;
   ui_locale: Locale;
   trust_level: number;
+  /** Бейдж «Телефон подтверждён» (POST /me/phone); сам номер API не отдаёт */
   phone_verified: boolean;
   created_at: string;
   home_city_id: number | null;

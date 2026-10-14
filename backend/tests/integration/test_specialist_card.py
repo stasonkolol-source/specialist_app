@@ -11,6 +11,10 @@ import pytest
 from sqlalchemy.ext.asyncio import AsyncEngine
 
 from app.modules.identity.api import RestrictionKind
+from app.modules.identity.application.use_cases.verify_phone import (
+    VerifyPhone,
+    VerifyPhoneCommand,
+)
 from app.modules.specialists.api import SpecialistsApi
 from app.modules.specialists.application.use_cases.add_portfolio_work import (
     AddPortfolioWork,
@@ -28,6 +32,12 @@ from app.platform.db.port import UnitOfWork
 from app.platform.kernel.ids import MediaId, new_id
 from app.platform.settings import Settings
 from tests.plugins.http import HttpApp, http_app
+from tests.plugins.identity import (
+    new_phone,
+    new_telegram_id,
+    phone_verification,
+    signed_contact,
+)
 from tests.plugins.round_trips import round_trips
 from tests.plugins.search import NAME, Specialist
 
@@ -119,6 +129,35 @@ async def test_card_comes_in_one_request_with_etag(web: HttpApp) -> None:
     assert again.status_code == 304
 
 
+async def test_verified_phone_puts_the_badge_on_the_card(
+    web: HttpApp, storage_settings: Settings, migrator_engine: AsyncEngine
+) -> None:
+    """«Телефон подтверждён» (POST /me/phone) — бейдж `phone_verified`; номера в карточке нет."""
+    specialist = Specialist(web.container)
+    await specialist.publish()
+    telegram_id, phone = new_telegram_id(), new_phone()
+    await specialist.execute(
+        "INSERT INTO identity.auth_identities (id, user_id, provider, subject)"
+        " VALUES (uuidv7(), :user, 'telegram', :subject)",
+        user=specialist.user_id,
+        subject=str(telegram_id),
+    )
+    async with phone_verification(migrator_engine, web.container):
+        await specialist.call(
+            VerifyPhone,
+            VerifyPhoneCommand(
+                actor_id=specialist.user_id,
+                contact=signed_contact(storage_settings, telegram_id, phone),
+            ),
+        )
+
+    response = await get(web, str(specialist.profile_id))
+
+    # приоритет бейджей: телефон, затем «Проверен модератором»
+    assert response.json()["badges"] == ["phone_verified", "moderated"]
+    assert phone.removeprefix("+") not in response.text
+
+
 async def test_whole_city_specialist_has_the_city_instead_of_a_district(web: HttpApp) -> None:
     """QA SMOKE-6: у специалиста «Весь Нови-Сад» основной район — не первый по алфавиту
     квартал: `whole_city`, района нет, список районов — как в профиле."""
@@ -145,7 +184,7 @@ async def test_card_reads_do_not_grow_with_the_profile(web: HttpApp) -> None:
     """Перф-аудит: карточка S08 — десять запросов при любом числе районов и работ (было 16 и
     по запросу на район): фото и работы — одним, справочники — из снимка в памяти процесса,
     отзывы «до платформы» — счётчиком для строки «Отзывы до платформы · N», уровень доверия
-    автора — для маски контактов в текстах и прайсе (B3).
+    автора — для маски контактов в текстах и прайсе (B3), бейдж телефона — одним к identity.
     Прайс S09 и отзывы S11 проверяют видимость без описаний и портфолио; S09 — ещё уровень
     доверия автора (маска, B3), отзывам S11 — число «До платформы · N» для второй вкладки (7.6а)."""
     specialist = await published(web)

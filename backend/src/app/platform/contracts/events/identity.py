@@ -106,6 +106,18 @@ class UserUpdated(DomainEvent):
 
 
 @dataclass(frozen=True, slots=True, kw_only=True)
+class PhoneVerified(DomainEvent):
+    """Пользователь подтвердил телефон подписанным контактом Telegram (`requestContact`, POST
+    /me/phone): бейдж «Телефон подтверждён» и уровень доверия 1 (ADR-0016 §2). Номера в событии
+    нет — подписчикам нужен только факт. Подписчик — поиск: бейдж в карточке выдачи. Повтор с
+    тем же номером события не даёт; новый номер — даёт снова.
+    """
+
+    event_type = "identity.PhoneVerified"
+    user_id: UserId
+
+
+@dataclass(frozen=True, slots=True, kw_only=True)
 class UserRestricted(DomainEvent):
     """На пользователя наложена санкция (identity.restrictions).
 

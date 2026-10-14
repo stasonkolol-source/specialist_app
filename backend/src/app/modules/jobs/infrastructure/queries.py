@@ -23,7 +23,7 @@ from sqlalchemy import (
 )
 from sqlalchemy.dialects.postgresql import ARRAY, aggregate_order_by
 
-from app.modules.jobs.application.dto import DealResponse, JobView, MyResponseRef
+from app.modules.jobs.application.dto import DealResponse, JobView, MyResponseRef, ResponseCounts
 from app.modules.jobs.application.feed import (
     CARD_PHOTOS,
     DESCRIPTION_PREVIEW,
@@ -398,6 +398,22 @@ class SqlJobQueries(SqlQuery):
             .order_by(_R.created_at, _R.id)
         )
         return [_owner_response(row) for row in rows]
+
+    async def response_counts(self, job_id: JobId) -> ResponseCounts:
+        review = _R.review
+        row = await self._fetch_one(
+            select(
+                func.count().filter(review == ResponseReview.CLEAR.value).label("visible"),
+                func.count().filter(review == ResponseReview.PENDING.value).label("pending"),
+            ).where(
+                _R.job_id == job_id,
+                _R.deleted_at.is_(None),
+                _R.status != ResponseStatus.WITHDRAWN.value,
+            )
+        )
+        if row is None:
+            return ResponseCounts(visible=0, pending=0)
+        return ResponseCounts(visible=int(row["visible"]), pending=int(row["pending"]))
 
     async def still_open(self, job_ids: Collection[JobId], now: datetime) -> set[JobId]:
         if not job_ids:

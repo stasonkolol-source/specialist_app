@@ -5,14 +5,22 @@
 // версия приложения.
 // «Мой Telegram» (по умолчанию включён) — ссылка на свой Telegram второй стороне в сделке и в чате.
 // Телефоном делятся в чате кнопкой «Поделиться контактом» (S54); переключатель «Мой номер
-// телефона» — с подтверждением номера (v1).
+// телефона» — v1. «Подтвердить телефон» — строка ниже (решение владельца 2026-10-14): одно
+// нажатие, Telegram отдаёт номер, другие видят только бейдж «Телефон подтверждён» — исполнители
+// у клиента (S15), клиенты у специалиста; клиент без requestContact (браузер) строки не видит.
 // «Экспорт моих данных» — запрос в поддержку (runbook 2.12, выгрузку делает `cli export-user-data`):
 // строка открывает чат с аккаунтом поддержки из client-config; пока его нет (K23, Q25) — «скоро»
 // без подписи «Запрос в поддержку»: она обещала бы действие, которое бейдж отменяет.
 // «Заблокированные» (S44, 4.7) — сколько человек заблокировано: список тот же, что у S44.
 import type { MeOut } from '@sosed/api-client';
-import { useIdentityGetMe } from '@sosed/api-client';
-import { useBlocks, useSupportLink, useUpdatePrivacy } from '@sosed/hooks';
+import { ApiError, useIdentityGetMe } from '@sosed/api-client';
+import {
+  PhoneDeclinedError,
+  useBlocks,
+  useSupportLink,
+  useUpdatePrivacy,
+  useVerifyPhone,
+} from '@sosed/hooks';
 import { useTranslation } from '@sosed/i18n';
 import { useBackButton, usePlatform } from '@sosed/platform';
 import {
@@ -60,6 +68,7 @@ export function SettingsScreen() {
       )}
       <Notifications />
       <Privacy me={me.data} />
+      {me.data && <Phone me={me.data} />}
       <AccountActions />
       <Text variant="cap" className="pt-1 text-center">
         {t('settings.version', { version: __APP_VERSION__ })}
@@ -126,6 +135,53 @@ function Privacy({ me }: { me: MeOut | undefined }) {
         </Banner>
       )}
     </section>
+  );
+}
+
+/** «Подтвердить телефон» одним нажатием; подтверждён — строка-факт. Отказ и 409 `phone_taken` —
+ *  честным текстом под строкой. Кто увидит бейдж — по намерению из онбординга. */
+function Phone({ me }: { me: MeOut }) {
+  const { t } = useTranslation('account');
+  const platform = usePlatform();
+  const { available, verify } = useVerifyPhone(platform);
+  if (!me.phone_verified && !available) return null;
+  const who = me.intent === 'client' ? 'client' : 'other';
+  const error = verify.error;
+  const problem = error instanceof ApiError && error.status < 500 ? error.problem.detail : null;
+  return (
+    <div className="flex flex-col gap-2">
+      <div aria-live="polite">
+        <Group>
+          {me.phone_verified ? (
+            <Row icon="shield" title={t('settings.phoneVerified', { who })} />
+          ) : (
+            <Row
+              icon="phone"
+              title={t('settings.phone')}
+              subtitle={t('settings.phoneHint', { who })}
+              chevron
+              onClick={() => {
+                if (verify.isPending) return;
+                verify.mutate(undefined, {
+                  onSuccess: () => platform.haptics.notification('success'),
+                });
+              }}
+            />
+          )}
+        </Group>
+      </div>
+      {error instanceof PhoneDeclinedError ? (
+        <p role="status" className="m-0 px-1 text-cap text-text2">
+          {t('settings.phoneDeclined')}
+        </p>
+      ) : (
+        error && (
+          <Banner tone="danger" role="alert">
+            {problem ?? t('settings.phoneFailed')}
+          </Banner>
+        )
+      )}
+    </div>
   );
 }
 

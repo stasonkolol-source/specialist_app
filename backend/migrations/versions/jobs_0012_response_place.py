@@ -7,7 +7,7 @@
 с `false` до первой пройденной проверки.
 
 Ревизия: jobs_0012 (2026-10-14 10:00:00.000000+00:00)
-Предыдущая: notifications_0012
+Предыдущая: notifications_0014
 
 Правила (DEVELOPMENT_PLAN 0.9, ADR-0005):
 - имя ревизии — <модуль>_NNNN, файл — <модуль>_NNNN_<slug>.py;
@@ -23,7 +23,7 @@ import sqlalchemy as sa
 from alembic import op
 
 revision: str = "jobs_0012"
-down_revision: str | Sequence[str] | None = "notifications_0012"
+down_revision: str | Sequence[str] | None = "notifications_0014"
 branch_labels: str | Sequence[str] | None = None
 depends_on: str | Sequence[str] | None = None
 

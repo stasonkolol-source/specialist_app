@@ -321,6 +321,19 @@ NOTIFY_JOB_EXPIRING: Final = TaskRef(
 NOTIFY_JOB_EXPIRED: Final = TaskRef(
     "notifications.notify_job_expired", JobExpired, queue="notifications"
 )
+NO_RESPONSES_AFTER: Final = timedelta(hours=1)
+"""Сколько заявка ждёт первого отклика, прежде чем клиенту предложат поделиться ею."""
+NOTIFY_NO_RESPONSES: Final = TaskRef(
+    "notifications.notify_no_responses",
+    JobPublished,
+    queue="notifications",
+    delay=NO_RESPONSES_AFTER,
+)
+"""Подписчик JobPublished: через NO_RESPONSES_AFTER без откликов клиенту — «Пока никто не
+откликнулся… Поделитесь заявкой в чате района» и «Поделиться», один раз на заявку."""
+NO_RESPONSES_PREFIX: Final = "job.no_responses:"
+"""Ключ дедупликации `job.no_responses:<заявка>`: одно такое уведомление на заявку; ждущее конца
+тихих часов не уходит, если пришёл отклик или заявку закрыли."""
 RESPONSES_DEBOUNCE: Final = timedelta(minutes=5)
 """Окно дебаунса `response.received` (§11.3): отклики за пять минут — одно уведомление. Так —
 со второго отклика на заявку; о первом клиент узнаёт сразу (FIRST_RESPONSE_DELAY)."""

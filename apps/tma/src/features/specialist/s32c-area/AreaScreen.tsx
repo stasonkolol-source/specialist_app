@@ -4,10 +4,10 @@
 // /me/profile/submit). Районы нужны, когда специалист выезжает; «Весь Нови-Сад» отмечает их все
 // одним нажатием и у выезжающего без районов включён сразу (решение владельца 2026-10-05).
 // Позиция прайса обязательна «Специалисту» (2.8b), подработке — по желанию. «Подтвердить
-// телефон» с артборда — в v1: на старте — без лишних шагов для пользователя (решение владельца
-// 2026-10-01). Кабинет S33 обещает «бот напишет, когда опубликуем», а бот не пишет первым
-// (ADR-0011): если канала нет, отправка тут же просит requestWriteAccess — без отдельного шага;
-// отказ ничего не ломает, S33 скажет, как открыть канал.
+// телефон» с артборда — необязательной строкой перед «Отправить на проверку», без отдельного шага
+// (решение владельца 2026-10-14; shared/PhoneVerify.tsx). Кабинет S33 обещает «бот напишет,
+// когда опубликуем», а бот не пишет первым (ADR-0011): если канала нет, отправка тут же просит
+// requestWriteAccess — без отдельного шага; отказ ничего не ломает, S33 скажет, как открыть канал.
 import type {
   DistrictOut,
   ProfileOut,
@@ -38,6 +38,7 @@ import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { useId, useRef, useState } from 'react';
 
 import { LoadState } from '../shared/LoadState.tsx';
+import { PhoneVerify } from '../shared/PhoneVerify.tsx';
 import { SaveError } from '../shared/SaveError.tsx';
 import { WizardHeader } from '../shared/WizardHeader.tsx';
 import { useChipList } from '../shared/chips.ts';
@@ -371,6 +372,7 @@ function AreaForm({
           {pro ? t('become.area.priceHint') : t('become.area.priceOptional')}
         </p>
       </div>
+      <PhoneVerify />
       <Text variant="cap">{t('become.area.review')}</Text>
       {submit.isError && <SaveError error={submit.error} />}
     </section>
