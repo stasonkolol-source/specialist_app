@@ -1891,6 +1891,21 @@ msgstr "ИД ове групе: <code>{chat_id}</code>\nДа би ова гру�
 msgid "bot.moderation.chat.configured"
 msgstr "Ово је група модератора, картице случајева стижу овде."
 
+msgid "bot.concierge.title"
+msgstr "⏳ <b>Захтев без понуда</b>"
+
+msgid "bot.concierge.job"
+msgstr "📄 <b>{title}</b>"
+
+msgid "bot.concierge.silence"
+msgstr "0 понуда за {minutes} мин · послато претплатницима: {count}"
+
+msgid "bot.concierge.pending"
+msgstr "чека проверу: {count}"
+
+msgid "bot.concierge.open"
+msgstr "Отвори захтев"
+
 msgid "errors.invalid_job_alert"
 msgstr "Проверите претплату: категорије, кварт или полупречник, буџет."
 

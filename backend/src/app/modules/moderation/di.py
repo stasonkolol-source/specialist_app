@@ -49,6 +49,7 @@ from app.modules.moderation.application.use_cases.import_content_rules import (
 from app.modules.moderation.application.use_cases.inspect_dispute import InspectDispute
 from app.modules.moderation.application.use_cases.open_case import CaseOpener, OpenCase
 from app.modules.moderation.application.use_cases.post_case_card import PostCaseCard
+from app.modules.moderation.application.use_cases.post_concierge_card import PostConciergeCard
 from app.modules.moderation.application.use_cases.recheck_images import RecheckImages
 from app.modules.moderation.application.use_cases.record_rate_limit_signals import (
     RecordRateLimitSignals,
@@ -226,6 +227,7 @@ class ModerationProvider(Provider):
     create_report = provide(CreateReport)
     file_appeal = provide(FileAppeal)
     post_case_card = provide(PostCaseCard)
+    post_concierge_card = provide(PostConciergeCard)
 
     @provide
     async def case_photos(self, s3: S3Settings, request: AsyncContainer) -> CasePhotos:
@@ -278,11 +280,13 @@ class ModerationProvider(Provider):
         clock: Clock,
     ) -> ModeratorsChat:
         """Чат модераторов (K29): пусто в настройках — карточек нет. Ссылка «Открыть в
-        админке» — APP_ADMIN_PUBLIC_URL (без него — адрес API + /admin)."""
+        админке» — APP_ADMIN_PUBLIC_URL (без него — адрес API + /admin); ссылка на заявку в
+        карточке concierge — через бота окружения."""
         return TelegramModeratorsChat(
             sender,
             translator,
             telegram.moderators_chat_id,
             clock=clock,
             admin_url=admin_base_url(app),
+            bot_username=telegram.bot_username,
         )

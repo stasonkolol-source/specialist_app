@@ -5,7 +5,10 @@
 Кейс о фото — само фото (вариант `md`) с карточкой в подписи. Фото Bot API не принял (формат,
 размер) — карточка уходит текстом: модератор получит кейс в любом случае, а фото посмотрит в
 админке. Карточка устаревшего кейса (объект изменили после неё, ADV-11) теряет кнопки решения:
-вместо них неактивная строка «Версия изменилась — смотрите новую карточку»."""
+вместо них неактивная строка «Версия изменилась — смотрите новую карточку».
+
+Чат модераторов — он же чат concierge (7.1): туда же уходит карточка заявки без откликов
+(application/concierge_card.py) со ссылкой `t.me/<бот>?startapp=j_…`."""
 
 from typing import Final
 
@@ -17,7 +20,8 @@ from app.modules.moderation.application.case_card import (
     card_text,
     superseded_buttons,
 )
-from app.modules.moderation.application.dto import CaseContext
+from app.modules.moderation.application.concierge_card import quiet_job_buttons, quiet_job_text
+from app.modules.moderation.application.dto import CaseContext, QuietJob
 from app.modules.moderation.domain.cases import Case
 from app.platform.i18n.translator import Translator
 from app.platform.kernel.clock import Clock
@@ -44,9 +48,12 @@ class TelegramModeratorsChat:
         *,
         clock: Clock,
         admin_url: str | None = None,
+        bot_username: str | None = None,
     ) -> None:
         self._sender, self._translator, self._chat_id = sender, translator, chat_id
         self._clock, self._admin_url = clock, admin_url
+        self._bot_username = bot_username
+        """Имя бота окружения: ссылка на заявку в карточке concierge; нет — без ссылки."""
 
     @property
     def enabled(self) -> bool:
@@ -94,3 +101,17 @@ class TelegramModeratorsChat:
             await self._sender.edit_buttons(self._chat_id, case.card_message_id, buttons)
         except TelegramRejectedError as exc:  # карточку удалили из чата — гасить нечего
             log.warning("moderators_chat_card_gone", case_id=str(case.id), reason=exc.reason)
+
+    async def post_quiet_job(self, job: QuietJob) -> int | None:
+        if self._chat_id is None:
+            return None
+        sent = await self._sender.send(
+            OutgoingMessage(
+                chat_id=self._chat_id,
+                text=quiet_job_text(
+                    job, self._translator, now=self._clock.now(), bot_username=self._bot_username
+                ),
+                buttons=quiet_job_buttons(job, self._translator, self._bot_username),
+            )
+        )
+        return sent.message_id

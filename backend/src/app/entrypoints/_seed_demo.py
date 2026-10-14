@@ -1267,10 +1267,12 @@ async def seed_demo(
             " case); the worker removes their profiles, jobs, chats and reviews"
         )
     # «одобрить всё»: профили и заявки одобряет сид, автопроверка с кейсами в очереди не нужна;
-    # повторная регистрация демо-ID после --replace — не сигнал риска
+    # повторная регистрация демо-ID после --replace — не сигнал риска; демо-заявки без откликов —
+    # не повод для concierge
     registry = build_event_registry().without(
         "moderation.auto_check",
         "moderation.record_reregistration",
+        "moderation.post_concierge_card",
         "analytics.",
         "notifications.",
         "growth.",

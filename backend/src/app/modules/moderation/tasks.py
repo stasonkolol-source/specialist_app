@@ -10,6 +10,8 @@
   (DisputeUnanswered) — поводы «ответ» и «нет ответа», `moderation.close_dispute_case`
   (DisputeWithdrawn) — кейс закрыт без решения.
 - `moderation.post_case_card` — CaseOpened: карточка кейса в чате модераторов (2.5b).
+- `moderation.post_concierge_card` — JobPublished первой публикации, через 20 минут: заявка всё
+  ещё без видимых клиенту откликов — карточка concierge в тот же чат (7.1).
 - `moderation.check_duplicates` — MediaReady: фото портфолио похоже (pHash) на работу другого
   аккаунта — кейс P2 о профиле загрузившего (ADR-0016 L6, план 7.6).
 - `moderation.check_image` — MediaReady: фото профиля, портфолио и заявки — в omni-moderation;
@@ -30,6 +32,7 @@ from app.modules.moderation.application.ports import (
     NOTE_DISPUTE_UNANSWERED,
     OPEN_DISPUTE_CASE,
     POST_CASE_CARD,
+    POST_CONCIERGE_CARD,
     RECHECK_IMAGE,
     RECORD_REREGISTRATION,
 )
@@ -47,6 +50,10 @@ from app.modules.moderation.application.use_cases.check_image import (
 from app.modules.moderation.application.use_cases.post_case_card import (
     PostCaseCard,
     PostCaseCardCommand,
+)
+from app.modules.moderation.application.use_cases.post_concierge_card import (
+    PostConciergeCard,
+    PostConciergeCardCommand,
 )
 from app.modules.moderation.application.use_cases.recheck_images import (
     RecheckImages,
@@ -73,6 +80,7 @@ from app.platform.contracts.events.deals import (
     DisputeWithdrawn,
 )
 from app.platform.contracts.events.identity import UserRegistered
+from app.platform.contracts.events.jobs import JobPublished
 from app.platform.contracts.events.media import MediaReady
 from app.platform.contracts.events.moderation import CaseOpened, ModerationRequested
 from app.platform.queue.tasks import PeriodicRun, periodic, subscriber, task
@@ -135,6 +143,16 @@ async def rate_limit_signals(run: PeriodicRun) -> None:
 @subscriber(CaseOpened, POST_CASE_CARD)
 async def post_case_card(event: CaseOpened, post: FromDishka[PostCaseCard]) -> None:
     await post(PostCaseCardCommand(case_id=event.case_id))
+
+
+@subscriber(JobPublished, POST_CONCIERGE_CARD)
+async def post_concierge_card(event: JobPublished, post: FromDishka[PostConciergeCard]) -> None:
+    """Одна карточка на заявку — по первой публикации; повторные (правка, продление, отмена
+    сделки) concierge уже видел. Прямой запрос подбирать не нужно: его видит только
+    приглашённый."""
+    if event.republished or event.direct:
+        return
+    await post(PostConciergeCardCommand(job_id=event.job_id, published_at=event.occurred_at))
 
 
 @subscriber(MediaReady, CHECK_DUPLICATES)

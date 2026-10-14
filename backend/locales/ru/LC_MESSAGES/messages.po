@@ -1891,6 +1891,21 @@ msgstr "Id этого чата: <code>{chat_id}</code>\nЧтобы этот ча
 msgid "bot.moderation.chat.configured"
 msgstr "Это чат модераторов, карточки кейсов приходят сюда."
 
+msgid "bot.concierge.title"
+msgstr "⏳ <b>Заявка без откликов</b>"
+
+msgid "bot.concierge.job"
+msgstr "📄 <b>{title}</b>"
+
+msgid "bot.concierge.silence"
+msgstr "0 откликов за {minutes} мин · разослано подписчикам: {count}"
+
+msgid "bot.concierge.pending"
+msgstr "ждут проверки: {count}"
+
+msgid "bot.concierge.open"
+msgstr "Открыть заявку"
+
 msgid "errors.invalid_job_alert"
 msgstr "Проверьте подписку: категории, район или радиус, бюджет."
 

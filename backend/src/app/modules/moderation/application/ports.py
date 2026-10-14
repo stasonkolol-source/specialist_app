@@ -13,6 +13,7 @@ from app.modules.moderation.application.dto import (
     ImportRulesResult,
     OpenCaseView,
     QueueSla,
+    QuietJob,
     RecheckImagePayload,
     ReportFilter,
     StaffCaseView,
@@ -32,6 +33,7 @@ from app.platform.contracts.events.deals import (
     DisputeWithdrawn,
 )
 from app.platform.contracts.events.identity import UserRegistered
+from app.platform.contracts.events.jobs import JobPublished
 from app.platform.contracts.events.media import MediaReady
 from app.platform.contracts.events.moderation import CaseOpened, ModerationRequested
 from app.platform.kernel.ids import CaseId, MediaId, UserId
@@ -253,7 +255,8 @@ class AutoCheckMetrics(Protocol):
 
 
 class ModeratorsChat(Protocol):
-    """Чат модераторов (2.5b, infrastructure/chat.py): карточка кейса с кнопками решения."""
+    """Чат модераторов (2.5b, infrastructure/chat.py): карточка кейса с кнопками решения; он же чат
+    concierge (7.1) — карточка заявки без откликов."""
 
     @property
     def enabled(self) -> bool:
@@ -269,6 +272,11 @@ class ModeratorsChat(Protocol):
         """Кейс устарел (объект изменили после карточки): кнопки решения под его карточкой
         заменить строкой «Версия изменилась — смотрите новую карточку». Сообщения уже нет —
         ничего."""
+        ...
+
+    async def post_quiet_job(self, job: QuietJob) -> int | None:
+        """Карточка concierge: заявка без откликов и ссылка на неё. Id сообщения; None — чата
+        нет. Bot API недоступен — ExternalServiceError (повтор задачи)."""
         ...
 
 
@@ -330,6 +338,13 @@ CLOSE_DISPUTE_CASE: Final = TaskRef("moderation.close_dispute_case", DisputeWith
 """Спор отозван: кейс закрыт без решения."""
 POST_CASE_CARD: Final = TaskRef("moderation.post_case_card", CaseOpened)
 """Новый кейс (2.5b): карточка в чате модераторов."""
+CONCIERGE_AFTER: Final = timedelta(minutes=20)
+"""Сколько заявка ждёт откликов, прежде чем concierge узнает о ней (7.1: «3 предложения за час» —
+на ручной подбор остаётся 40 минут)."""
+POST_CONCIERGE_CARD: Final = TaskRef(
+    "moderation.post_concierge_card", JobPublished, delay=CONCIERGE_AFTER
+)
+"""Заявка опубликована (7.1): через CONCIERGE_AFTER без откликов — карточка в чат модераторов."""
 CHECK_DUPLICATES: Final = TaskRef("moderation.check_duplicates", MediaReady)
 """Фото портфолио обработано (7.6): такое же у других аккаунтов — кейс P2 (ADR-0016 L6)."""
 CHECK_IMAGE: Final = TaskRef("moderation.check_image", MediaReady)
