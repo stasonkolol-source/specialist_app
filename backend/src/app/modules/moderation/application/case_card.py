@@ -401,7 +401,8 @@ def _event(case: Case, context: CaseContext, texts: _Texts) -> str:
 
 
 def _who(person: PersonContext, texts: _Texts, *, now: datetime) -> list[str]:
-    """Кто: имя, роль, район; ниже — сколько в сервисе, доверие, сделки и жалобы."""
+    """Кто: имя, роль, район; ниже — сколько в сервисе, доверие, телефон (да/нет), сделки и
+    жалобы."""
     t = texts.t
     if person.name is None:
         lines = [t("bot.moderation.card.who_deleted")]
@@ -419,6 +420,9 @@ def _who(person: PersonContext, texts: _Texts, *, now: datetime) -> list[str]:
         facts.append(t("bot.moderation.card.age", age=_age(now - person.joined_at, texts)))
     if person.trust_level is not None:
         facts.append(t("bot.moderation.card.trust", level=person.trust_level))
+    if person.phone_verified is not None:
+        phone = "phone_yes" if person.phone_verified else "phone_no"
+        facts.append(t(f"bot.moderation.card.{phone}"))
     if person.deals_done is not None:
         facts.append(t("bot.moderation.card.deals", count=person.deals_done))
     facts.append(

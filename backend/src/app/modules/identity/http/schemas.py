@@ -27,12 +27,24 @@ class PrivacyIn(BaseModel):
     show_telegram: bool | None = None
 
 
+class PhoneIn(BaseModel):
+    """«Подтвердить телефон» (S33, S32c, S43): подписанный ответ `requestContact`."""
+
+    contact: str = Field(
+        min_length=1,
+        max_length=8192,
+        description="Поле `response` из ответа `requestContact` (подписано Telegram)",
+    )
+
+
 class MeOut(BaseModel):
     id: UUID
     display_name: str
     ui_locale: Locale
     trust_level: int
-    phone_verified: bool
+    phone_verified: bool = Field(
+        description="Бейдж «Телефон подтверждён» (POST /me/phone); сам номер API не отдаёт"
+    )
     created_at: datetime
     home_city_id: int | None
     intent: UserIntent | None

@@ -42,6 +42,8 @@ export {
 } from './legal/useLegalDocument.ts';
 export type { MediaApi, MediaTransport, Prepared, PutResult } from './media/upload.ts';
 export { useUpdatePrivacy } from './account/privacy.ts';
+export type { PhoneContactClient } from './account/phone.ts';
+export { PhoneDeclinedError, useVerifyPhone } from './account/phone.ts';
 export type { ChatEntry, PendingMessage } from './messages/chat.ts';
 export {
   CHAT_PAGE_SIZE,

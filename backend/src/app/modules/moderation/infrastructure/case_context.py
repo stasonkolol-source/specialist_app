@@ -235,6 +235,7 @@ class FacadeCaseContext(SqlQuery, CaseContextQuery):
             district=district,
             joined_at=user.created_at,
             trust_level=user.trust_level,
+            phone_verified=user.phone_verified,
             deals_done=await self._deals.completed_deals(user_id),
             complaints_open=opened,
             complaints_total=total,

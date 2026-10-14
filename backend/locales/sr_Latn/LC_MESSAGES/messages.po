@@ -738,6 +738,15 @@ msgstr "Kontakt možete podeliti nakon dogovora."
 msgid "errors.invalid_contact"
 msgstr "Deljenje kontakta nije uspelo. Ponovo otvorite aplikaciju i pokušajte opet."
 
+msgid "errors.phone_taken"
+msgstr "Ovaj broj je već potvrđen na drugom nalogu u „Sosedima“: jedan broj — jedan nalog."
+
+msgid "errors.invalid_phone_contact"
+msgstr "Potvrda telefona nije uspela. Ponovo otvorite aplikaciju i pokušajte opet."
+
+msgid "errors.phone_verification_unavailable"
+msgstr "Potvrda telefona još nije dostupna."
+
 msgid "errors.review_not_found"
 msgstr "Utisak nije pronađen."
 
@@ -1411,6 +1420,12 @@ msgstr "{count} d."
 
 msgid "bot.moderation.card.trust"
 msgstr "poverenje {level}"
+
+msgid "bot.moderation.card.phone_yes"
+msgstr "telefon: da"
+
+msgid "bot.moderation.card.phone_no"
+msgstr "telefon: ne"
 
 msgid "bot.moderation.card.deals"
 msgstr "dogovora: {count}"

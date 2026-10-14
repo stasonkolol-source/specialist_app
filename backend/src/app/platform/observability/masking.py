@@ -29,6 +29,8 @@ SENSITIVE_KEYS = frozenset(
         "init_data_raw",
         "phone",
         "phone_number",
+        # подписанный ответ requestContact (POST /me/phone, share-contact S54): внутри — номер
+        "contact",
         "text",
         "message_text",
         "caption",

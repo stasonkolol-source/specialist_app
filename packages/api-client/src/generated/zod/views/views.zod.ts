@@ -136,7 +136,7 @@ export const ViewsGetSpecialistResponse = zod.object({
   badges: zod
     .array(zod.string())
     .describe(
-      'Факты о профиле: moderated — проверен модератором до публикации (дата — published_at)',
+      'Факты о профиле: phone_verified — телефон подтверждён (номер не отдаётся), moderated — проверен модератором до публикации (дата — published_at)',
     ),
   response_time_minutes: zod
     .union([zod.int(), zod.null()])

@@ -4,6 +4,10 @@
 Профиль попадает в индекс, только если он опубликован, а его автор не удалён и не скрыт
 санкцией (приостановка, бан, теневой бан). Остальные строки удаляются; у срочной санкции
 известен её конец — тогда профиль надо пересобрать снова (`reindex_at`).
+
+«Телефон подтверждён» — только в готовой карточке (`card.phone_verified`), не в колонке
+`badges`: по ней выдача считает доверие (`BADGE_TRUST`, вес `trust`) и фильтр `verified`, а
+порядок выдачи не должен зависеть от телефона, пока нет страницы «Как мы сортируем» (ZZP ст. 28).
 """
 
 from collections.abc import Collection, Mapping
@@ -99,6 +103,7 @@ class SpecialistProjection:
         avatars = [p.avatar_media_id for p in profiles if p.avatar_media_id is not None]
         refs = await self._media.refs(avatars) if avatars else {}
         ratings = await self._reviews.summaries([p.id for p in profiles])
+        users = await self._identity.users({p.user_id for p in profiles})
         return _Context(
             prices=prices,
             categories=categories,
@@ -107,6 +112,7 @@ class SpecialistProjection:
             avatars=refs,
             ratings=ratings,
             whole_city=whole_city,
+            phone_verified={user_id for user_id, user in users.items() if user.phone_verified},
         )
 
     def _entry(self, profile: ProfileForIndex, context: _Context) -> IndexEntry:
@@ -169,6 +175,7 @@ class SpecialistProjection:
                 district,
                 rating,
                 whole_city=whole_city,
+                phone_verified=profile.user_id in context.phone_verified,
             ),
             source_updated_at=profile.updated_at,
         )
@@ -184,6 +191,8 @@ class _Context:
     ratings: Mapping[UUID, RatingSummary]
     whole_city: Collection[UUID]
     """Профили, чьи районы — все кварталы города (GeoApi.covers_city)."""
+    phone_verified: Collection[UUID] = frozenset()
+    """Авторы с подтверждённым телефоном (IdentityApi.users)."""
 
 
 def _document(
@@ -228,6 +237,7 @@ def _card(
     rating: RatingSummary | None = None,
     *,
     whole_city: bool = False,
+    phone_verified: bool = False,
 ) -> dict[str, Any]:
     """Готовая карточка выдачи S05 без JOIN: время и расстояние выдача берёт из колонок. Единица
     цены «от» — только для показа («от 1 000 RSD/час»), поэтому в карточке, а не колонкой: по всему
@@ -246,6 +256,8 @@ def _card(
             else None
         ),
         "whole_city": whole_city,
+        # бейдж — только показ (docstring модуля): колонку badges выдача берёт в ранжирование
+        "phone_verified": phone_verified,
         "languages": list(profile.languages),
         "category_ids": list(profile.category_ids),
         "price_from": prices.price_from,

@@ -1,12 +1,14 @@
 // S43 Настройки (DEVELOPMENT_PLAN 4.9) в приложении целиком на mock-платформе и MSW: язык (PATCH
 // /me, без перезагрузки; тесты перенесены с S31), город в шторке, уведомления «группа × канал» и
 // тихие часы (PUT /me/notification-settings, нажатие видно сразу), переключатель «Запуск раздела
-// «Вещи»» у подписанных (7.5), экспорт данных через поддержку и «скоро» без контакта, версия.
+// «Вещи»» у подписанных (7.5), экспорт данных через поддержку и «скоро» без контакта, версия,
+// «Подтвердить телефон» (POST /me/phone).
 import type {
   CityOut,
   MeUpdateIn,
   NotificationSettingsIn,
   NotificationSettingsOut,
+  PhoneIn,
 } from '@sosed/api-client';
 import { setSession } from '@sosed/api-client';
 import { act, fireEvent, screen, waitFor, within } from '@testing-library/react';
@@ -365,5 +367,56 @@ describe('S43 data export and version', () => {
     await click(exportRow);
 
     expect(telegram.callsOf('web_app_open_tg_link')).toEqual([{ path_full: '/sosedi_support' }]);
+  });
+});
+
+describe('S43 phone', () => {
+  /** Флаг «Подтвердить телефон» в client-config (по умолчанию выключен до редакции 2 политики). */
+  const phoneFlag = (on: boolean) =>
+    server.use(
+      http.get('*/api/v1/client-config', () =>
+        HttpResponse.json({
+          ...CLIENT_CONFIG,
+          flags: { ...CLIENT_CONFIG.flags, 'identity.phone_verification': on },
+        }),
+      ),
+    );
+
+  it('has no phone row while the flag is off', async () => {
+    userBackend(ME);
+    startApp('/settings');
+
+    await screen.findByText('Заблокированные');
+    await act(async () => {});
+    expect(screen.queryByText(/Подтвердить телефон/)).toBeNull();
+  });
+
+  it('confirms the phone in one tap: performers see the badge of a client, never the number', async () => {
+    phoneFlag(true);
+    userBackend(ME);
+    const sent: string[] = [];
+    server.use(
+      http.post('*/api/v1/me/phone', async ({ request }) => {
+        sent.push(((await request.json()) as PhoneIn).contact);
+        return HttpResponse.json({ ...ME, phone_verified: true, trust_level: 1 });
+      }),
+    );
+    startApp('/settings');
+
+    const row = await screen.findByRole('button', { name: /Подтвердить телефон/ });
+    expect(row.textContent).toMatch(/Исполнители увидят бейдж, сам номер — нет/);
+    await click(row);
+
+    expect(await screen.findByText(/Телефон подтверждён · исполнители видят бейдж/)).toBeTruthy();
+    expect(screen.queryByRole('button', { name: /Подтвердить телефон/ })).toBeNull();
+    expect(sent).toHaveLength(1);
+  });
+
+  it('shows a verified phone as a fact: a specialist is told clients see the badge', async () => {
+    userBackend({ ...ME, phone_verified: true, intent: 'pro' });
+    startApp('/settings');
+
+    expect(await screen.findByText(/Телефон подтверждён · клиенты видят бейдж/)).toBeTruthy();
+    expect(screen.queryByRole('button', { name: /Подтвердить телефон/ })).toBeNull();
   });
 });

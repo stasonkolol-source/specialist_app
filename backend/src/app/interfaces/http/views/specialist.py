@@ -11,7 +11,7 @@
 медиана первого ответа в диалогах за 30 дней из read-model поиска (6.3b; при пяти и больше
 диалогах с ответом). Бейджи — факты, не оценки (ADR-0016; ZZP 35/2026 ст. 19–20): `moderated`
 — опубликованный профиль прочитал модератор до публикации, дата проверки — `published_at`;
-«Телефон подтверждён» и остальное — v1.
+`phone_verified` — телефон подтверждён (POST /me/phone), номер карточка не отдаёт.
 """
 
 from collections.abc import Collection, Mapping
@@ -51,6 +51,7 @@ TOP_SERVICES = 3
 PREVIEW_WORKS = 3
 """«Цены» и «Работы» на S08 — по одному ряду, как на артборде; остальное — S09 и S10."""
 READY = "ready"
+PHONE_VERIFIED = "phone_verified"
 STARS = 5
 LATEST_REVIEWS = 1
 """Последний отзыв на S08; остальные — S11."""
@@ -150,8 +151,8 @@ class SpecialistProfileOut(BaseModel):
         " рейтинг не входят"
     )
     badges: list[str] = Field(
-        description="Факты о профиле: moderated — проверен модератором до публикации (дата —"
-        " published_at)"
+        description="Факты о профиле: phone_verified — телефон подтверждён (номер не отдаётся),"
+        " moderated — проверен модератором до публикации (дата — published_at)"
     )
     response_time_minutes: int | None = Field(
         description="«Обычно отвечает за …»: медиана первого ответа в диалогах за 30 дней, в"
@@ -337,6 +338,7 @@ async def get_specialist(
     # все кварталы города — «Весь Нови-Сад»: первый по алфавиту основным районом не показываем
     whole_city = await geo.covers_city(profile.city_id, profile.area_ids)
     until = profile.available_until
+    owner = await identity.get_user(profile.user_id)
     body = SpecialistProfileOut(
         id=profile.id,
         user_id=profile.user_id,
@@ -359,7 +361,10 @@ async def get_specialist(
         rating_count=rating.count,
         is_new=rating.is_new,
         pre_platform_count=pre_platform,
-        badges=[MODERATED] if profile.published_at is not None else [],
+        badges=[
+            *([PHONE_VERIFIED] if owner is not None and owner.phone_verified else []),
+            *([MODERATED] if profile.published_at is not None else []),
+        ],
         response_time_minutes=await search.response_time(profile.id),
         services=[_service(service) for service in services[:TOP_SERVICES]],
         services_count=len(services),

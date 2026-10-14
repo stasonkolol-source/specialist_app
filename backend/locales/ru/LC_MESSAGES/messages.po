@@ -737,6 +737,15 @@ msgstr "Контактами можно поделиться после дого
 msgid "errors.invalid_contact"
 msgstr "Не удалось поделиться контактом. Откройте приложение заново и попробуйте ещё раз."
 
+msgid "errors.phone_taken"
+msgstr "Этот номер уже подтверждён в другом аккаунте «Соседей»: один номер — один аккаунт."
+
+msgid "errors.invalid_phone_contact"
+msgstr "Не удалось подтвердить телефон. Откройте приложение заново и попробуйте ещё раз."
+
+msgid "errors.phone_verification_unavailable"
+msgstr "Подтверждение телефона пока недоступно."
+
 msgid "errors.review_not_found"
 msgstr "Отзыв не найден."
 
@@ -1410,6 +1419,12 @@ msgstr "{count} дн."
 
 msgid "bot.moderation.card.trust"
 msgstr "доверие {level}"
+
+msgid "bot.moderation.card.phone_yes"
+msgstr "телефон: да"
+
+msgid "bot.moderation.card.phone_no"
+msgstr "телефон: нет"
 
 msgid "bot.moderation.card.deals"
 msgstr "сделок: {count}"

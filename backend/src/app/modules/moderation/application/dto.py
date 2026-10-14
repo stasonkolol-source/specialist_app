@@ -188,6 +188,8 @@ class PersonContext:
     """Основной район выезда специалиста или район заявки клиента."""
     joined_at: datetime | None = None
     trust_level: int | None = None
+    phone_verified: bool | None = None
+    """Бейдж «Телефон подтверждён» — да или нет; сам номер в карточку не попадает."""
     deals_done: int | None = None
     """Завершённые сделки в любой роли; None — не узнали (deals недоступен)."""
     complaints_open: int = 0

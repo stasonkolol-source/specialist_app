@@ -112,8 +112,9 @@ class FeatureFlagAdmin(_ConfigView, model=FeatureFlagRecord):
     form_columns: ClassVar[Any] = [feature_flags.c.enabled]
     help_text = (
         f"{PROPAGATION} Публичные флаги («в client-config») видит Mini App: сегмент «Вещи»"
-        " (goods.segment), техработы (platform.maintenance — API отвечает 503). Новые флаги"
-        " заводит миграция: их имена знает код."
+        " (goods.segment), техработы (platform.maintenance — API отвечает 503), «Подтвердить"
+        " телефон» (identity.phone_verification — включать вместе с редакцией 2 политики"
+        " конфиденциальности). Новые флаги заводит миграция: их имена знает код."
     )
 
 

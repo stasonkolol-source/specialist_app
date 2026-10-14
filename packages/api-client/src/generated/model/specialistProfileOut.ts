@@ -40,7 +40,7 @@ export interface SpecialistProfileOut {
   is_new: boolean;
   /** «Отзывы до платформы · 3»: опубликованные отзывы по приглашениям (7.6а), в рейтинг не входят */
   pre_platform_count: number;
-  /** Факты о профиле: moderated — проверен модератором до публикации (дата — published_at) */
+  /** Факты о профиле: phone_verified — телефон подтверждён (номер не отдаётся), moderated — проверен модератором до публикации (дата — published_at) */
   badges: string[];
   /** «Обычно отвечает за …»: медиана первого ответа в диалогах за 30 дней, в минутах; меньше пяти диалогов с ответом — null */
   response_time_minutes: number | null;

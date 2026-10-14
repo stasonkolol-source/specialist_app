@@ -138,6 +138,32 @@ export const getIdentityUpdatePrivacyResponseMock = (
   ...overrideResponse,
 });
 
+export const getIdentityVerifyPhoneResponseMock = (
+  overrideResponse: Partial<Extract<MeOut, object>> = {},
+): MeOut => ({
+  id: faker.string.uuid(),
+  display_name: faker.string.alpha({ length: { min: 10, max: 20 } }),
+  ui_locale: faker.helpers.arrayElement(Object.values(Locale)),
+  trust_level: faker.number.int(),
+  phone_verified: faker.datatype.boolean(),
+  created_at: faker.date.past().toISOString().slice(0, 19) + 'Z',
+  home_city_id: faker.helpers.arrayElement([faker.number.int(), null]),
+  intent: faker.helpers.arrayElement([faker.helpers.arrayElement(Object.values(UserIntent)), null]),
+  consents: {
+    [faker.string.alphanumeric(5)]: faker.string.alpha({ length: { min: 10, max: 20 } }),
+  },
+  consent_required: faker.datatype.boolean(),
+  can_post_jobs: faker.datatype.boolean(),
+  can_respond: faker.datatype.boolean(),
+  can_message: faker.datatype.boolean(),
+  deletion_scheduled_at: faker.helpers.arrayElement([
+    faker.date.past().toISOString().slice(0, 19) + 'Z',
+    null,
+  ]),
+  privacy: { show_telegram: faker.datatype.boolean() },
+  ...overrideResponse,
+});
+
 export const getIdentityAcceptConsentsResponseMock = (
   overrideResponse: Partial<Extract<MeOut, object>> = {},
 ): MeOut => ({
@@ -297,6 +323,27 @@ export const getIdentityUpdatePrivacyMockHandler = (
   );
 };
 
+export const getIdentityVerifyPhoneMockHandler = (
+  overrideResponse?:
+    MeOut | ((info: Parameters<Parameters<typeof http.post>[1]>[0]) => Promise<MeOut> | MeOut),
+  options?: RequestHandlerOptions,
+) => {
+  return http.post(
+    '*/api/v1/me/phone',
+    async (info: Parameters<Parameters<typeof http.post>[1]>[0]) => {
+      return HttpResponse.json(
+        overrideResponse !== undefined
+          ? typeof overrideResponse === 'function'
+            ? await overrideResponse(info)
+            : overrideResponse
+          : getIdentityVerifyPhoneResponseMock(),
+        { status: 200 },
+      );
+    },
+    options,
+  );
+};
+
 export const getIdentityAcceptConsentsMockHandler = (
   overrideResponse?:
     MeOut | ((info: Parameters<Parameters<typeof http.post>[1]>[0]) => Promise<MeOut> | MeOut),
@@ -402,6 +449,7 @@ export const getIdentityMock = () => [
   getIdentityGetMeMockHandler(),
   getIdentityUpdateMeMockHandler(),
   getIdentityUpdatePrivacyMockHandler(),
+  getIdentityVerifyPhoneMockHandler(),
   getIdentityAcceptConsentsMockHandler(),
   getIdentityRequestDeletionMockHandler(),
   getIdentityCancelDeletionMockHandler(),

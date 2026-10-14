@@ -33,6 +33,8 @@ export interface StartOptions {
   deviceStorage?: Record<string, string>;
   /** Ответ LocationManager: по умолчанию — точка в Лимане, `null` — отказ или нет геолокации. */
   location?: { latitude: number; longitude: number } | null;
+  /** Ответ на requestContact: по умолчанию человек отправляет номер, false — отказался. */
+  contact?: boolean;
 }
 
 export function startApp(path = '/', options: StartOptions = {}) {
@@ -45,6 +47,7 @@ export function startApp(path = '/', options: StartOptions = {}) {
     popupAnswer,
     deviceStorage: options.deviceStorage,
     location: options.location,
+    contact: options.contact,
   });
   const app = assemble(platform, {
     version: '0.1.0',
