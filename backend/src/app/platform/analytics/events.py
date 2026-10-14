@@ -196,7 +196,9 @@ EVENTS: Final[Mapping[EventName, EventSpec]] = {
         properties={"approved": Flag()},
     ),
     EventName.PRO_WAITLIST_JOINED: EventSpec(
-        step="2.7b", description="Лист ожидания Pro: «Хочу узнать первым» в рассылке (Q24)"
+        step="2.7b",
+        description="Лист ожидания Pro: «Хочу узнать первым» в рассылке (Q24)",
+        properties={},
     ),
     EventName.PHONE_VERIFIED: EventSpec(step="2.9", description="Телефон подтверждён"),
     EventName.REPORT_CREATED: EventSpec(
