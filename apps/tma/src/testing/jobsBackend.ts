@@ -1577,6 +1577,7 @@ export function dealCardFixture(
     budget: job.budget_min,
     counterpart: {
       role: 'performer',
+      user_id: PERFORMER_USER,
       display_name: card.performer.display_name,
       profile_id: card.performer.profile_id,
       avatar: card.performer.avatar,
@@ -1617,6 +1618,10 @@ export function dealCardFixture(
   return role === 'client' ? deal : asOther(deal);
 }
 
+/** Аккаунты сторон сделок фикстуры: на них жалуются «Просит предоплату» (S26). */
+const CLIENT_USER = '0199dd00-0000-7000-8000-00000000c11e';
+const PERFORMER_USER = '0199dd00-0000-7000-8000-0000000000ff';
+
 /** Когда бот спросит «Работа выполнена?» (deals): через 3 ч после времени работы, без времени —
  *  через сутки после договорённости. С этого часа на S26 это главная кнопка. */
 export function completionDue(scheduledAt: string | null, agreedAt: string): string {
@@ -1637,6 +1642,7 @@ function asOther(deal: DealCardOut): DealCardOut {
     counterpart: performer
       ? {
           role: 'client',
+          user_id: CLIENT_USER,
           display_name: 'Елена К.',
           profile_id: null,
           avatar: null,
@@ -1668,8 +1674,8 @@ function dealOut(deal: DealCardOut): DealOut {
     category_id: null,
     price: deal.price,
     scheduled_at: deal.scheduled_at,
-    client_id: '0199dd00-0000-7000-8000-00000000c11e',
-    performer_id: '0199dd00-0000-7000-8000-0000000000ff',
+    client_id: CLIENT_USER,
+    performer_id: PERFORMER_USER,
     profile_id: deal.counterpart.profile_id,
     job_id: deal.job_id,
     response_id: deal.response_id,
@@ -1706,6 +1712,7 @@ export function proposedDealFixture(conversationId: string): DealCardOut {
     budget: null,
     counterpart: {
       role: 'client',
+      user_id: CLIENT_USER,
       display_name: 'Елена К.',
       profile_id: null,
       avatar: null,
