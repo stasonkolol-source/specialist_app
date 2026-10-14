@@ -47,7 +47,7 @@ router = APIRouter(tags=["notifications"])
 
 LOCALES: Final = (Locale.RU, Locale.SR_LATN, Locale.SR_CYRL)
 MAX_TEXT = 3500
-BroadcastGroup = Literal["marketing", "goods_launch"]
+BroadcastGroup = Literal["marketing", "goods_launch", "city_launch"]
 
 
 class BroadcastOut(BaseModel):

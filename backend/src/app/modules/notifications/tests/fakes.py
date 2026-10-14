@@ -4,6 +4,7 @@ from collections.abc import Collection
 from dataclasses import dataclass, field
 from datetime import UTC, datetime
 
+from app.modules.geo.api import CitySummary, DistrictSummary, ResolvedPoint
 from app.modules.identity.api import (
     Action,
     BlockedUser,
@@ -12,8 +13,9 @@ from app.modules.identity.api import (
     TelegramUserView,
     UserSummary,
 )
-from app.platform.kernel.ids import CaseId, RestrictionId, UserId
-from app.platform.kernel.localized import Locale
+from app.platform.kernel.geo import GeoPoint
+from app.platform.kernel.ids import CaseId, CityId, DistrictId, RestrictionId, UserId
+from app.platform.kernel.localized import Locale, LocalizedText
 from app.platform.kernel.principal import Role
 
 
@@ -92,3 +94,46 @@ class FakeIdentity:
 
     async def completed_deals(self, user_ids: Collection[UserId]) -> dict[UserId, int]:
         return {}
+
+
+@dataclass
+class FakeGeo:
+    """GeoApi: открытый Нови-Сад (1) и Белград «скоро» (2); районы и точки notifications не
+    нужны."""
+
+    cities: dict[CityId, CitySummary] = field(
+        default_factory=lambda: {
+            CityId(1): CitySummary(
+                id=CityId(1),
+                slug="novi-sad",
+                name=LocalizedText({Locale.RU: "Нови-Сад"}),
+                is_active=True,
+            ),
+            CityId(2): CitySummary(
+                id=CityId(2),
+                slug="beograd",
+                name=LocalizedText({Locale.RU: "Белград"}),
+                is_active=False,
+            ),
+        }
+    )
+
+    async def city(self, city_id: CityId) -> CitySummary | None:
+        return self.cities.get(city_id)
+
+    async def resolve(self, point: GeoPoint) -> ResolvedPoint | None:
+        return None
+
+    async def district(self, district_id: DistrictId) -> DistrictSummary | None:
+        return None
+
+    async def districts(
+        self, district_ids: Collection[DistrictId]
+    ) -> dict[DistrictId, DistrictSummary]:
+        return {}
+
+    async def covers_city(self, city_id: CityId, district_ids: Collection[DistrictId]) -> bool:
+        return False
+
+    def public_point(self, point: GeoPoint, *, seed: bytes) -> GeoPoint:
+        return point

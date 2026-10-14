@@ -162,7 +162,7 @@ class BroadcastRow(UuidPkMixin, TimestampsMixin, Base):
 
     status: Mapped[BroadcastStatus] = mapped_column(str_enum(BroadcastStatus, "status"))
     event_group: Mapped[EventGroup] = mapped_column(str_enum(EventGroup, "event_group"))
-    """Группа согласия S43: только opt-in (`marketing`, `goods_launch`)."""
+    """Группа согласия S43: только opt-in (`marketing`, `goods_launch`, `city_launch`)."""
     audience: Mapped[Audience] = mapped_column(str_enum(Audience, "audience"))
     city_id: Mapped[int | None] = mapped_column(Integer)
     """geo.cities; FK не нужен: город только сужает выборку."""
@@ -179,7 +179,9 @@ class BroadcastRow(UuidPkMixin, TimestampsMixin, Base):
     """Последний разобранный получатель: следующая пачка — после него."""
 
     __table_args__ = (
-        CheckConstraint("event_group IN ('marketing', 'goods_launch')", name="opt_in_group"),
+        CheckConstraint(
+            "event_group IN ('marketing', 'goods_launch', 'city_launch')", name="opt_in_group"
+        ),
         CheckConstraint("link IS NULL OR action IS NULL", name="one_button"),
         Index("ix_broadcasts_created_at", "created_at"),
     )

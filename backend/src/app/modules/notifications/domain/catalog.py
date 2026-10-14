@@ -73,12 +73,17 @@ class EventGroup(StrEnum):
     """«Запуск раздела «Вещи»»: один раз, когда раздел откроется (S58, DEVELOPMENT_PLAN 7.5).
     Только по согласию: подписывает кнопка «Сообщить о запуске», снимает переключатель S43.
     Типа уведомления пока нет — его добавит модуль goods (ADR-0019)."""
+    CITY_LAUNCH = "city_launch"
+    """«Запуск в новом городе»: лист ожидания города «скоро» (S02a) — один раз, когда город
+    откроется. Только по согласию: подписывает «Сообщить о запуске» на S02a (`POST
+    /me/city-waitlist`), снимает переключатель S43. Какой город — в событии CityWaitlistJoined;
+    о запуске пишет рассылка из админки этой группе."""
     ACCOUNT = "account"
     """Служебные: решения модерации и санкции. Не выключаются."""
 
 
 MANDATORY_GROUPS = frozenset({EventGroup.ACCOUNT})
-OPT_IN_GROUPS = frozenset({EventGroup.MARKETING, EventGroup.GOODS_LAUNCH})
+OPT_IN_GROUPS = frozenset({EventGroup.MARKETING, EventGroup.GOODS_LAUNCH, EventGroup.CITY_LAUNCH})
 """Выключены, пока человек сам не включит."""
 BROADCAST_GROUPS = OPT_IN_GROUPS
 """Группы рассылок из админки (2.7b): объявления — только тем, кто согласился их получать

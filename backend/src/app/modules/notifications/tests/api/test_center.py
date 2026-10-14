@@ -9,6 +9,8 @@ from collections.abc import AsyncIterator
 from typing import Any
 
 import pytest
+from sqlalchemy import text
+from sqlalchemy.ext.asyncio import AsyncEngine
 from tests.plugins.http import HttpApp, http_app
 from tests.plugins.identity import bearer, login, new_telegram_id, signed_init_data, user_id_of
 
@@ -24,6 +26,7 @@ pytestmark = pytest.mark.integration
 CENTER = "/api/v1/me/notifications"
 READ = "/api/v1/me/notifications/read"
 SETTINGS = "/api/v1/me/notification-settings"
+CITY_WAITLIST = "/api/v1/me/city-waitlist"
 
 
 @pytest.fixture
@@ -116,8 +119,9 @@ async def test_settings_default_then_saved(app: HttpApp, settings: Settings) -> 
         "in_app": False,
         "mandatory": False,
     }
-    # запуск «Вещей» (S58, 7.5) — только по согласию, как новости
+    # запуски «Вещей» (S58, 7.5) и города «скоро» (S02a) — только по согласию, как новости
     assert (groups["goods_launch"]["telegram"], groups["goods_launch"]["in_app"]) == (False, False)
+    assert (groups["city_launch"]["telegram"], groups["city_launch"]["in_app"]) == (False, False)
     assert groups["account"]["mandatory"] is True
     assert body["quiet_hours"] == {
         "enabled": True,
@@ -187,3 +191,34 @@ async def test_center_and_settings_need_a_session(app: HttpApp) -> None:
     for method, path in (("GET", CENTER), ("GET", SETTINGS), ("POST", READ)):
         response = await app.client.request(method, path, json={"all": True})
         assert response.status_code == 401, path
+
+
+async def test_city_waitlist_only_for_upcoming_cities(
+    app: HttpApp, settings: Settings, geo_seeded: None
+) -> None:
+    """S02a: «Сообщить о запуске» Белграда («скоро») — группа `city_launch` в обоих каналах;
+    повтор — то же; Нови-Сад открыт — 422 `city_not_upcoming`."""
+    _, headers = await signed_in(app, settings)
+    engine = await app.container.get(AsyncEngine)
+    async with engine.connect() as conn:
+        rows = await conn.execute(
+            text("SELECT slug, id FROM geo.cities WHERE slug IN ('beograd', 'novi-sad')")
+        )
+        cities: dict[str, int] = {row.slug: row.id for row in rows}
+
+    joined = await app.client.post(
+        CITY_WAITLIST, json={"city_id": cities["beograd"]}, headers=headers
+    )
+    again = await app.client.post(
+        CITY_WAITLIST, json={"city_id": cities["beograd"]}, headers=headers
+    )
+    open_city = await app.client.post(
+        CITY_WAITLIST, json={"city_id": cities["novi-sad"]}, headers=headers
+    )
+
+    assert (joined.status_code, again.status_code) == (200, 200), joined.text
+    launch = next(g for g in again.json()["groups"] if g["group"] == "city_launch")
+    assert (launch["telegram"], launch["in_app"]) == (True, True)
+    assert (open_city.status_code, open_city.json()["code"]) == (422, "city_not_upcoming")
+    anonymous = await app.client.post(CITY_WAITLIST, json={"city_id": cities["beograd"]})
+    assert anonymous.status_code == 401

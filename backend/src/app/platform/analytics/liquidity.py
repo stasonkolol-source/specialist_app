@@ -13,6 +13,12 @@ app в транзакции READ ONLY. Снимок один на весь от�
 
 Пара «город × категория» — город заявки и корневая категория её пути (`category_path[1]`).
 Сделки без заявки (из каталога и чата) пары не имеют и входят только в итог.
+
+Метрики ворот — только органика: аккаунты персонала (любая роль в `identity.user_roles` —
+admin, moderator, support) не входят ни клиентами, ни исполнителями, ни пользователями. Заявка
+сотрудника, его отклик (concierge) и сделка с ним дали бы «ликвидность», которой у рынка нет.
+Отдельного признака concierge- или тестового аккаунта нет — исключается только персонал.
+Отклик считается, когда клиент его видит: проверка `clear` (ждущий проверки клиенту не показан).
 """
 
 import math
@@ -57,6 +63,18 @@ def week_window(beta_start: date, week: int) -> Window:
     return Window(start, datetime.combine(first + timedelta(days=7), time(), tzinfo=BUSINESS_TZ))
 
 
+ROLLING: Final[Mapping[str, tuple[timedelta, str]]] = {
+    "24h": (timedelta(hours=24), "24 ч"),
+    "7d": (timedelta(days=7), "7 дней"),
+}
+"""Скользящие окна `cli beta-report --last`: длина и подпись в заголовке отчёта."""
+
+
+def rolling_window(span: timedelta, now: datetime) -> Window:
+    """Последние `span` до `now`: первые дни беты видны, не дожидаясь конца недели."""
+    return Window(now - span, now)
+
+
 def current_week(beta_start: date, now: datetime) -> int:
     """Неделя беты, в которую попадает `now` (по Белграду); до старта — 0."""
     today = now.astimezone(BUSINESS_TZ).date()
@@ -86,6 +104,10 @@ class Liquidity:
     first_hour_three_a_day: Ratio = Ratio(0, 0)
     """Ворота открытия категории: ≥ 1 отклик за 1 ч и ≥ 3 за 24 ч (дневные заявки)."""
     ttfr_minutes: float | None = None
+    submit_to_first_minutes: float | None = None
+    """Медиана от отправки заявки клиентом (`created_at`, до премодерации) до первого видимого
+    отклика — сколько ждёт клиент; TTFR считается от публикации. Момент отклика — его отправка:
+    когда проверка его пропустила, не хранится (автопроверка — секунды, ручная — до 30 мин)."""
     depth: float | None = None
     """Медиана откликов на заявку за 24 ч."""
     fill_7d: Ratio = Ratio(0, 0)
@@ -276,6 +298,7 @@ def _liquidity(
         rr_24h=ratio(j, "rr24h"),
         first_hour_three_a_day=ratio(j, "gate"),
         ttfr_minutes=_float(j.get("ttfr_minutes")),
+        submit_to_first_minutes=_float(j.get("submit_to_first_minutes")),
         depth=_float(j.get("depth")),
         fill_7d=ratio(j, "fill"),
         completion=ratio(d, "completion"),
@@ -309,28 +332,32 @@ async def pair_names(
 
 
 # Заявки окна: публичные (прямой запрос 5.6 уходит конкретным людям и в ликвидность ленты не
-# входит), не снятые модерацией. Отклики — прошедшие или ждущие проверки (скрытые модерацией
-# клиенту не видны) и не раньше публикации: продлённая заявка публикуется заново.
+# входит), не снятые модерацией, не от персонала. Отклики — видимые клиенту (проверка `clear`),
+# не от персонала и не раньше публикации: продлённая заявка публикуется заново.
 _JOBS_SQL = """
 WITH job AS (
     SELECT j.id, j.city_id, j.category_path[1] AS category_id, j.published_at,
+           j.created_at AS submitted_at,
            extract(hour FROM j.published_at AT TIME ZONE :tz) >= :day_start
            AND extract(hour FROM j.published_at AT TIME ZONE :tz) < :day_end AS daytime
     FROM jobs.jobs j
     WHERE j.published_at >= :start AND j.published_at < :end AND j.published_at < :as_of
       AND j.visibility = 'public' AND j.status <> 'removed'
+      AND j.client_id NOT IN (SELECT user_id FROM identity.user_roles)
 ),
 fact AS (
-    SELECT job.*, r.first_after,
+    SELECT job.*, r.first_after, r.first_since_submit,
            coalesce(r.n1h, 0) AS n1h, coalesce(r.n4h, 0) AS n4h, coalesce(r.n24h, 0) AS n24h,
            EXISTS (
                SELECT 1 FROM deals.deals d
                WHERE d.job_id = job.id AND d.agreed_at < :as_of
                  AND d.agreed_at < job.published_at + interval '7 days'
+                 AND d.performer_id NOT IN (SELECT user_id FROM identity.user_roles)
            ) AS filled
     FROM job
     LEFT JOIN LATERAL (
         SELECT min(x.created_at) - job.published_at AS first_after,
+               min(x.created_at) - job.submitted_at AS first_since_submit,
                count(*) FILTER (WHERE x.created_at - job.published_at <= interval '1 hour')
                    AS n1h,
                count(*) FILTER (WHERE x.created_at - job.published_at <= interval '4 hours')
@@ -338,8 +365,9 @@ fact AS (
                count(*) FILTER (WHERE x.created_at - job.published_at <= interval '24 hours')
                    AS n24h
         FROM jobs.responses x
-        WHERE x.job_id = job.id AND x.review <> 'blocked'
+        WHERE x.job_id = job.id AND x.review = 'clear'
           AND x.created_at >= job.published_at AND x.created_at < :as_of
+          AND x.performer_id NOT IN (SELECT user_id FROM identity.user_roles)
     ) r ON true
 )
 SELECT GROUPING(city_id, category_id) = 0 AS is_pair, city_id, category_id,
@@ -358,6 +386,8 @@ SELECT GROUPING(city_id, category_id) = 0 AS is_pair, city_id, category_id,
                         AND n1h > 0 AND n24h >= 3) AS gate_hits,
        percentile_cont(0.5) WITHIN GROUP (ORDER BY extract(epoch FROM first_after) / 60)
            AS ttfr_minutes,
+       percentile_cont(0.5) WITHIN GROUP (ORDER BY extract(epoch FROM first_since_submit) / 60)
+           AS submit_to_first_minutes,
        percentile_cont(0.5) WITHIN GROUP (ORDER BY n24h)
            FILTER (WHERE published_at <= :as_of - interval '24 hours') AS depth,
        count(*) FILTER (WHERE published_at <= :as_of - interval '7 days') AS fill_total,
@@ -366,7 +396,8 @@ FROM fact
 GROUP BY GROUPING SETS ((city_id, category_id), ())
 """
 
-# Сделки: договорённые в окне (completion) и завершённые в окне (North Star).
+# Сделки: договорённые в окне (completion) и завершённые в окне (North Star). Сделка с
+# сотрудником с любой стороны — не органика.
 _DEALS_SQL = """
 WITH deal AS (
     SELECT d.status, d.agreed_at, d.completed_at, j.city_id,
@@ -374,8 +405,10 @@ WITH deal AS (
     FROM deals.deals d
     LEFT JOIN jobs.jobs j ON j.id = d.job_id
     LEFT JOIN catalog.categories c ON c.id = d.category_id
-    WHERE (d.agreed_at >= :start AND d.agreed_at < :end AND d.agreed_at < :as_of)
-       OR (d.completed_at >= :start AND d.completed_at < :end AND d.completed_at < :as_of)
+    WHERE ((d.agreed_at >= :start AND d.agreed_at < :end AND d.agreed_at < :as_of)
+           OR (d.completed_at >= :start AND d.completed_at < :end AND d.completed_at < :as_of))
+      AND d.client_id NOT IN (SELECT user_id FROM identity.user_roles)
+      AND d.performer_id NOT IN (SELECT user_id FROM identity.user_roles)
 )
 SELECT GROUPING(city_id, category_id) = 0 AS is_pair, city_id, category_id,
        count(*) FILTER (WHERE agreed_at >= :start AND agreed_at < :end AND agreed_at < :as_of)
@@ -389,7 +422,8 @@ GROUP BY GROUPING SETS ((city_id, category_id), ())
 """
 
 # Исполнители, откликавшиеся в окне: их число (weekly active specialists, supply/demand) и
-# медиана доли откликов, по которым договорились (win rate).
+# медиана доли откликов, по которым договорились (win rate). Отклик сотрудника и отклик на
+# заявку сотрудника — не органика.
 _RESPONDERS_SQL = """
 WITH r AS (
     SELECT x.performer_id, j.city_id, j.category_path[1] AS category_id,
@@ -400,7 +434,9 @@ WITH r AS (
     FROM jobs.responses x
     JOIN jobs.jobs j ON j.id = x.job_id
     WHERE x.created_at >= :start AND x.created_at < :end AND x.created_at < :as_of
-      AND x.review <> 'blocked'
+      AND x.review = 'clear'
+      AND x.performer_id NOT IN (SELECT user_id FROM identity.user_roles)
+      AND j.client_id NOT IN (SELECT user_id FROM identity.user_roles)
 ),
 per AS (
     SELECT GROUPING(city_id, category_id) = 0 AS is_pair, city_id, category_id, performer_id,
@@ -415,20 +451,34 @@ GROUP BY is_pair, city_id, category_id
 """
 
 # Метрики без пары: стороны, удержание, доверие. Состояния (профили, каналы) — на конец окна.
+# Персонал не входит ни в одну сторону: ни пользователем, ни клиентом, ни исполнителем.
 _SIDES_SQL = """
-WITH responders AS (
-    SELECT DISTINCT performer_id AS user_id FROM jobs.responses
-    WHERE created_at >= :start AND created_at < :end AND created_at < :as_of
-      AND review <> 'blocked'
+WITH staff AS (
+    SELECT DISTINCT user_id FROM identity.user_roles
+),
+responders AS (
+    SELECT DISTINCT x.performer_id AS user_id FROM jobs.responses x
+    JOIN jobs.jobs j ON j.id = x.job_id
+    WHERE x.created_at >= :start AND x.created_at < :end AND x.created_at < :as_of
+      AND x.review = 'clear'
+      AND x.performer_id NOT IN (SELECT user_id FROM staff)
+      AND j.client_id NOT IN (SELECT user_id FROM staff)
 ),
 profile AS (
     SELECT p.user_id FROM specialists.profiles p
     WHERE p.status = 'published' AND p.deleted_at IS NULL AND p.created_at < :end
+      AND p.user_id NOT IN (SELECT user_id FROM staff)
 ),
 first_job AS (
     SELECT client_id, min(published_at) AS first_at FROM jobs.jobs
     WHERE published_at IS NOT NULL AND status <> 'removed'
+      AND client_id NOT IN (SELECT user_id FROM staff)
     GROUP BY client_id
+),
+deal AS (
+    SELECT * FROM deals.deals
+    WHERE client_id NOT IN (SELECT user_id FROM staff)
+      AND performer_id NOT IN (SELECT user_id FROM staff)
 ),
 cohort AS (
     SELECT * FROM first_job
@@ -437,16 +487,20 @@ cohort AS (
 active AS (
     SELECT client_id AS user_id FROM jobs.jobs
     WHERE published_at >= :start AND published_at < :end AND published_at < :as_of
+      AND client_id NOT IN (SELECT user_id FROM staff)
     UNION
     SELECT user_id FROM responders
+),
+person AS (
+    SELECT * FROM identity.users
+    WHERE deleted_at IS NULL AND id NOT IN (SELECT user_id FROM staff)
 )
 SELECT
     (SELECT count(*) FROM profile) AS profiles,
     (SELECT count(*) FROM profile JOIN responders USING (user_id)) AS active_profiles,
-    (SELECT count(*) FROM identity.users u
-     WHERE u.deleted_at IS NULL AND u.created_at < :end) AS users,
-    (SELECT count(*) FROM identity.users u
-     WHERE u.deleted_at IS NULL AND u.created_at < :end
+    (SELECT count(*) FROM person u WHERE u.created_at < :end) AS users,
+    (SELECT count(*) FROM person u
+     WHERE u.created_at < :end
        AND EXISTS (
            SELECT 1 FROM notifications.channels ch
            WHERE ch.user_id = u.id AND ch.kind = 'telegram' AND ch.granted_at < :end
@@ -461,7 +515,7 @@ SELECT
                  AND j.published_at <= c.first_at + interval '60 days'
            )
         OR EXISTS (
-               SELECT 1 FROM deals.deals d
+               SELECT 1 FROM deal d
                WHERE d.client_id = c.client_id AND d.job_id IS NULL
                  AND d.created_at > c.first_at
                  AND d.created_at <= c.first_at + interval '60 days'
@@ -469,13 +523,14 @@ SELECT
     (SELECT count(*) FROM identity.users u
      JOIN growth.attributions a ON a.user_id = u.id
      WHERE u.created_at >= :start AND u.created_at < :end AND u.created_at < :as_of
+       AND u.id NOT IN (SELECT user_id FROM staff)
        AND (a.referral_code IS NOT NULL
             OR a.source = ANY(:viral))) AS viral_users,
     (SELECT count(*) FROM active) AS active_users,
-    (SELECT count(*) FROM deals.deals d
+    (SELECT count(*) FROM deal d
      WHERE d.status = 'completed' AND d.completed_at >= :start AND d.completed_at < :end
        AND d.completed_at < :as_of) AS completed,
-    (SELECT count(*) FROM deals.deals d
+    (SELECT count(*) FROM deal d
      WHERE d.status = 'completed' AND d.completed_at >= :start AND d.completed_at < :end
        AND d.completed_at < :as_of
        AND EXISTS (
@@ -484,13 +539,14 @@ SELECT
        )) AS reviewed,
     (SELECT count(*) FROM moderation.reports
      WHERE reason = 'fraud' AND created_at >= :start AND created_at < :end
-       AND created_at < :as_of) AS fraud_reports,
-    (SELECT count(*) FROM deals.deals
+       AND created_at < :as_of
+       AND reporter_id NOT IN (SELECT user_id FROM staff)) AS fraud_reports,
+    (SELECT count(*) FROM deal
      WHERE agreed_at >= :start AND agreed_at < :end AND agreed_at < :as_of) AS deals_agreed,
     (SELECT count(*) FROM (
         SELECT user_id FROM responders
         UNION
-        SELECT performer_id FROM deals.deals
+        SELECT performer_id FROM deal
         WHERE agreed_at >= :start AND agreed_at < :end AND agreed_at < :as_of
     ) s) AS specialists_base
 """
@@ -507,9 +563,11 @@ GROUP BY queue
 ORDER BY queue
 """
 
-# Выборы окна по исполнителям — для концентрации.
+# Выборы окна по исполнителям — для концентрации; сделки с персоналом — не органика.
 _CHOICES_SQL = """
 SELECT count(*) AS choices FROM deals.deals
 WHERE agreed_at >= :start AND agreed_at < :end AND agreed_at < :as_of
+  AND client_id NOT IN (SELECT user_id FROM identity.user_roles)
+  AND performer_id NOT IN (SELECT user_id FROM identity.user_roles)
 GROUP BY performer_id
 """

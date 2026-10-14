@@ -3,7 +3,7 @@
 from dataclasses import dataclass
 
 from app.platform.kernel.events import DomainEvent
-from app.platform.kernel.ids import UserId
+from app.platform.kernel.ids import CityId, UserId
 
 
 @dataclass(frozen=True, slots=True, kw_only=True)
@@ -32,4 +32,20 @@ class GoodsWaitlistJoined(DomainEvent):
 
     event_type = "notifications.GoodsWaitlistJoined"
     user_id: UserId
+    bot_writable: bool
+
+
+@dataclass(frozen=True, slots=True, kw_only=True)
+class CityWaitlistJoined(DomainEvent):
+    """Пользователь попросил сообщить, когда откроется город «скоро» (S02a).
+
+    Как у «Вещей» (GoodsWaitlistJoined): считается переход группы `city_launch` из «выключено во
+    всех каналах» во «включено хотя бы в одном» — повторное нажатие события не даёт. `city_id` —
+    город, о котором просили; `bot_writable` — может ли бот написать сейчас. Подписчик —
+    аналитика (`city_waitlist_joined`: спрос на следующий город).
+    """
+
+    event_type = "notifications.CityWaitlistJoined"
+    user_id: UserId
+    city_id: CityId
     bot_writable: bool

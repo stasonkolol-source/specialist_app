@@ -21,6 +21,7 @@ import type {
 } from '@tanstack/react-query';
 
 import type {
+  CityWaitlistIn,
   NotificationPageOut,
   NotificationSettingsIn,
   NotificationSettingsOut,
@@ -659,4 +660,116 @@ export const useNotificationsUpdateNotificationSettings = <
     getNotificationsUpdateNotificationSettingsMutationOptions(options),
     queryClient,
   );
+};
+export const getNotificationsJoinCityWaitlistUrl = () => {
+  return `/api/v1/me/city-waitlist`;
+};
+
+/**
+ * «Сообщить о запуске» города «скоро» на S02a: группа `city_launch` включается в обоих
+ * каналах (лист ожидания), ответ — настройки, как у PUT. Повтор идемпотентен. Город открыт или
+ * его нет в справочнике — 422 `city_not_upcoming`.
+ * @summary Join City Waitlist
+ */
+export const notificationsJoinCityWaitlist = async (
+  cityWaitlistIn: CityWaitlistIn,
+  options?: Parameters<typeof apiFetch>[1],
+): Promise<NotificationSettingsOut> => {
+  const getHeaders = (
+    h?: NonNullable<RequestInit['headers']>,
+  ): Record<string, string | readonly string[]> => {
+    if (!h) return {};
+    if (h instanceof Headers) return Object.fromEntries(h.entries());
+    if (Symbol.iterator in h) {
+      return Object.fromEntries(
+        Array.from(
+          h as Iterable<Iterable<string>>,
+          (entry) => Array.from(entry) as [string, string],
+        ),
+      );
+    }
+    const headers: Record<string, string | readonly string[]> = {};
+    for (const [name, value] of Object.entries<string | readonly string[] | undefined>(h)) {
+      if (value !== undefined) headers[name] = value;
+    }
+    return headers;
+  };
+  return apiFetch<NotificationSettingsOut>(getNotificationsJoinCityWaitlistUrl(), {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...getHeaders(options?.headers) },
+    body: JSON.stringify(cityWaitlistIn),
+  });
+};
+
+export const getNotificationsJoinCityWaitlistMutationKey = () =>
+  ['notificationsJoinCityWaitlist'] as const;
+
+export const getNotificationsJoinCityWaitlistMutationOptions = <
+  TError = ErrorType<ProblemOut>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof notificationsJoinCityWaitlist>>,
+    TError,
+    NotificationsJoinCityWaitlistMutationVariables,
+    TContext
+  >;
+  request?: SecondParameter<typeof apiFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof notificationsJoinCityWaitlist>>,
+  TError,
+  NotificationsJoinCityWaitlistMutationVariables,
+  TContext
+> => {
+  const mutationKey = getNotificationsJoinCityWaitlistMutationKey();
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof notificationsJoinCityWaitlist>>,
+    NotificationsJoinCityWaitlistMutationVariables
+  > = (props) => {
+    const { data } = props ?? {};
+
+    return notificationsJoinCityWaitlist(data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type NotificationsJoinCityWaitlistMutationResult = NonNullable<
+  Awaited<ReturnType<typeof notificationsJoinCityWaitlist>>
+>;
+export type NotificationsJoinCityWaitlistMutationBody = CityWaitlistIn;
+export type NotificationsJoinCityWaitlistMutationError = ErrorType<ProblemOut>;
+export type NotificationsJoinCityWaitlistMutationVariables = { data: CityWaitlistIn };
+
+/**
+ * @summary Join City Waitlist
+ */
+export const useNotificationsJoinCityWaitlist = <
+  TError = ErrorType<ProblemOut>,
+  TContext = unknown,
+>(
+  options?: {
+    mutation?: UseMutationOptions<
+      Awaited<ReturnType<typeof notificationsJoinCityWaitlist>>,
+      TError,
+      NotificationsJoinCityWaitlistMutationVariables,
+      TContext
+    >;
+    request?: SecondParameter<typeof apiFetch>;
+  },
+  queryClient?: QueryClient,
+): UseMutationResult<
+  Awaited<ReturnType<typeof notificationsJoinCityWaitlist>>,
+  TError,
+  NotificationsJoinCityWaitlistMutationVariables,
+  TContext
+> => {
+  return useMutation(getNotificationsJoinCityWaitlistMutationOptions(options), queryClient);
 };

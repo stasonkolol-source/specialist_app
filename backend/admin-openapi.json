@@ -2798,7 +2798,8 @@
             "type": "string",
             "enum": [
               "marketing",
-              "goods_launch"
+              "goods_launch",
+              "city_launch"
             ],
             "title": "Group",
             "description": "Группа согласия S43: служебная рассылкам недоступна",

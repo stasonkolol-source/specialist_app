@@ -24,6 +24,7 @@ from app.modules.notifications.domain.settings import (
     QUIET_START,
     TIMEZONE,
 )
+from app.platform.http.fields import INT4_MAX
 from app.platform.http.pagination import PageOut
 
 MAX_READ_IDS = 100
@@ -172,3 +173,8 @@ class NotificationSettingsIn(BaseModel):
         if len({g.group for g in self.groups}) != len(self.groups):
             raise ValueError("groups must be unique")
         return self
+
+
+class CityWaitlistIn(BaseModel):
+    city_id: int = Field(ge=1, le=INT4_MAX)
+    """Город «скоро» из `GET /cities` (`is_active: false`)."""

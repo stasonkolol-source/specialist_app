@@ -52,6 +52,7 @@ class EventName(StrEnum):
     SHARE_CREATED = "share_created"
     ATTRIBUTION_RECORDED = "attribution_recorded"
     GOODS_WAITLIST_JOINED = "goods_waitlist_joined"
+    CITY_WAITLIST_JOINED = "city_waitlist_joined"
 
 
 @dataclass(frozen=True, slots=True)
@@ -340,6 +341,12 @@ EVENTS: Final[Mapping[EventName, EventSpec]] = {
         step="7.5",
         description="«Сообщить о запуске» на S58: может ли бот написать сейчас",
         properties={"bot_writable": Flag()},
+    ),
+    EventName.CITY_WAITLIST_JOINED: EventSpec(
+        step="7.1",
+        description="«Сообщить о запуске» города «скоро» на S02a: какой город и может ли бот "
+        "написать сейчас — спрос на следующий город",
+        properties={"city": Ref(), "bot_writable": Flag()},
     ),
 }
 
