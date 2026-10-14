@@ -310,7 +310,12 @@ NOTIFY_JOB_EXPIRED: Final = TaskRef(
     "notifications.notify_job_expired", JobExpired, queue="notifications"
 )
 RESPONSES_DEBOUNCE: Final = timedelta(minutes=5)
-"""Окно дебаунса `response.received` (§11.3): отклики за пять минут — одно уведомление."""
+"""Окно дебаунса `response.received` (§11.3): отклики за пять минут — одно уведомление. Так —
+со второго отклика на заявку; о первом клиент узнаёт сразу (FIRST_RESPONSE_DELAY)."""
+FIRST_RESPONSE_DELAY: Final = timedelta(seconds=30)
+"""Первый отклик на заявку — клиенту без пятиминутного окна: он ждёт его больше всего. Полминуты
+— только на автопроверку текста (клиент видит отклик, когда она пройдена). Не успела (отклик у
+модератора) — обычное окно RESPONSES_DEBOUNCE от того же отклика."""
 
 
 @dataclass(frozen=True, slots=True, kw_only=True)
@@ -320,13 +325,17 @@ class ResponsesWindow:
     job_id: UUID
     since: datetime
     """Первый отклик окна: окно — ключ дедупликации уведомления."""
+    first: bool = False
+    """Окно первого отклика на заявку (FIRST_RESPONSE_DELAY): если к его концу отклик ещё на
+    проверке — ставится обычное окно."""
 
 
 SCHEDULE_RESPONSES_NOTICE: Final = TaskRef(
     "notifications.schedule_responses_notice", ResponseSubmitted, queue="notifications"
 )
-"""Подписчик ResponseSubmitted: первый отклик окна ставит уведомление через RESPONSES_DEBOUNCE,
-следующие, пока оно ждёт, — ничего (замок очереди по заявке)."""
+"""Подписчик ResponseSubmitted: первый отклик окна ставит уведомление через RESPONSES_DEBOUNCE
+(первый отклик на заявку — через FIRST_RESPONSE_DELAY), следующие, пока оно ждёт, — ничего
+(замок очереди по заявке)."""
 NOTIFY_RESPONSES: Final = TaskRef(
     "notifications.notify_responses", ResponsesWindow, queue="notifications"
 )

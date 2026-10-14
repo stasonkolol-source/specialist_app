@@ -22,9 +22,11 @@ notifications стоит над контентными модулями (ARCHITE
 - `notifications.notify_job_expired` — JobExpired: «Срок заявки вышел», «Продлить» и
   «Закрыть». Оба — только если заявка ещё в том статусе: продлённой и закрытой — ничего.
 - `notifications.schedule_responses_notice` — ResponseSubmitted: первый отклик окна ставит
-  `notifications.notify_responses` через пять минут, следующие — ничего (дебаунс, 5.4).
+  `notifications.notify_responses` через пять минут, следующие — ничего (дебаунс, 5.4); самый
+  первый отклик на заявку — через полминуты, только на автопроверку.
 - `notifications.notify_responses` — конец окна: клиенту «Новых откликов: 3» и кнопка к
-  заявке, если отклики прошли проверку и он их ещё не открыл.
+  заявке, если отклики прошли проверку и он их ещё не открыл. Первый отклик к концу своего
+  окна ещё на проверке — обычное пятиминутное окно от него.
 - `notifications.schedule_messages_notice` — MessageSent: первое сообщение окна ставит
   `notifications.notify_messages` получателю через минуту, следующие — ничего (дебаунс, 6.3b).
 - `notifications.notify_messages` — конец окна: «Алексей пишет» с началом последнего сообщения и
@@ -452,16 +454,28 @@ async def notify_job_expired(
 async def schedule_responses_notice(
     event: ResponseSubmitted, schedule: FromDishka[ScheduleResponsesNotice]
 ) -> None:
-    await schedule(ScheduleResponsesNoticeCommand(job_id=event.job_id, at=event.occurred_at))
+    await schedule(
+        ScheduleResponsesNoticeCommand(
+            job_id=event.job_id, at=event.occurred_at, first=event.is_first
+        )
+    )
 
 
 @task(NOTIFY_RESPONSES)
 async def notify_responses(
-    window: ResponsesWindow, notify: FromDishka[Notify], jobs: FromDishka[JobsApi]
+    window: ResponsesWindow,
+    notify: FromDishka[Notify],
+    jobs: FromDishka[JobsApi],
+    schedule: FromDishka[ScheduleResponsesNotice],
 ) -> None:
     notice = await jobs.responses_notice(window.job_id)
-    if notice is None or notice.status != "published" or notice.unseen == 0:
-        return  # заявку закрыли, отклики ещё на проверке или клиент их уже открыл
+    if notice is None or notice.status != "published":
+        return  # заявку закрыли
+    if notice.unseen == 0:
+        if window.first:
+            # первый отклик ещё на проверке (модератор): обычное окно от него
+            await schedule(ScheduleResponsesNoticeCommand(job_id=window.job_id, at=window.since))
+        return  # отклики ещё на проверке или клиент их уже открыл
     await notify(
         NotifyCommand(
             user_id=notice.client_id,
