@@ -1,4 +1,4 @@
-"""ORM-модели deals (ARCHITECTURE §7.3, миграции deals_0001–0004): сделки, история их статусов и
+"""ORM-модели deals (ARCHITECTURE §7.3, миграции deals_0001–0005): сделки, история их статусов и
 споры (6.1c).
 
 FK на identity.users, specialists.profiles и catalog.categories объявлены только в миграции:
@@ -17,6 +17,7 @@ from sqlalchemy import (
     Identity,
     Index,
     Integer,
+    SmallInteger,
     String,
     Text,
     Uuid,
@@ -101,6 +102,10 @@ class DealRow(UuidPkMixin, TimestampsMixin, VersionMixin, Base):
     """Сторонам напомнили о времени сделки (deals_0002)."""
     completion_prompted_at: Mapped[datetime | None]
     """Сторонам задали вопрос «Работа выполнена?» (deals_0002)."""
+    completion_snoozes: Mapped[int] = mapped_column(SmallInteger, server_default=text("0"))
+    """Сколько раз вопрос переносили «Ещё нет» (deals_0005)."""
+    completion_snoozed_until: Mapped[datetime | None]
+    """Спросить снова тогда — после последнего «Ещё нет» (deals_0005)."""
 
     __table_args__ = (
         CheckConstraint(
@@ -125,6 +130,11 @@ class DealRow(UuidPkMixin, TimestampsMixin, VersionMixin, Base):
         # проходы периодических задач сроков (6.1b)
         Index("ix_deals_agreed_scheduled_at", "scheduled_at", postgresql_where=AGREED),
         Index("ix_deals_agreed_agreed_at", "agreed_at", postgresql_where=AGREED),
+        Index(
+            "ix_deals_agreed_completion_snoozed_until",
+            "completion_snoozed_until",
+            postgresql_where=AGREED,
+        ),
         Index("ix_deals_proposed_created_at", "created_at", postgresql_where=PROPOSED),
     )
 

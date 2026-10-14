@@ -48,6 +48,8 @@ class CallbackAction(StrEnum):
     """«Подтвердить» под `deal.proposed` (6.3b): вторая сторона согласна — сделка `agreed`."""
     DEAL_DECLINE = "dn"
     """«Отклонить» под `deal.proposed` (6.3b): предложение отменяется, пока ещё ждёт ответа."""
+    DEAL_SNOOZE = "ds"
+    """«Ещё нет» под `deal.completion_prompt`: спросить снова через сутки (не больше трёх раз)."""
     DEAL_REPORT = "dr"
     """«Пожаловаться» — просят предоплату (`response.chosen`, «Есть проблема»): жалоба `fraud` на
     вторую сторону сделки в один тап (бот moderation)."""

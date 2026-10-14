@@ -2,7 +2,8 @@
 «Работа выполнена?» вызывает тот же CompleteDeal, что S26: отметка стороны, вторая отметка
 завершает сделку; по сделке под спором (6.1c) — «решение примет поддержка», без отметки.
 «Подтвердить» и «Отклонить» под «Договорились?» — те же ConfirmDeal и DeclineDeal, что S53.
-«Пожаловаться» — жалоба `fraud` на вторую сторону в один тап. Повтор нажатия ничего не меняет,
+«Ещё нет» переносит вопрос на сутки (не больше трёх раз). «Пожаловаться» — жалоба `fraud` на
+вторую сторону в один тап. Повтор нажатия ничего не меняет,
 чужая сделка — «не найдена»."""
 
 from collections.abc import AsyncIterator
@@ -203,3 +204,41 @@ async def test_report_files_a_fraud_report_on_the_other_party_in_one_tap(
         performer=str(performer),
     )
     assert tuple(row) == ("user", "fraud")
+
+
+async def test_not_yet_asks_again_in_a_day_at_most_three_times(harness: BotHarness) -> None:
+    client, performer = telegram_user(), telegram_user()
+    for telegram_id in (client, performer):
+        await harness.send(telegram_id, "/start")
+    deal_id = await agreed_deal(harness, client, performer)
+    await sql(
+        harness, "UPDATE deals.deals SET completion_prompted_at = now() WHERE id = :id", id=deal_id
+    )
+    not_yet = encode_callback(CallbackData(CallbackAction.DEAL_SNOOZE, deal_id))
+
+    first = await harness.press(client, not_yet)
+    second_side = await harness.press(performer, not_yet)  # тот же перенос, не второй
+
+    snoozed = "Хорошо, спросим ещё раз через сутки."
+    assert edits(first) == [snoozed]
+    assert edits(second_side) in ([snoozed], [])
+    row = await sql(
+        harness,
+        "SELECT completion_snoozes, completion_prompted_at IS NULL,"
+        " completion_snoozed_until > now() + interval '23 hours' FROM deals.deals WHERE id = :id",
+        id=deal_id,
+    )
+    assert tuple(row) == (1, True, True)
+
+    await sql(
+        harness,
+        "UPDATE deals.deals SET completion_snoozes = 3, completion_prompted_at = now()"
+        " WHERE id = :id",
+        id=deal_id,
+    )
+    limit = await harness.press(client, not_yet)
+
+    assert edits(limit) == []  # вопрос с «Да» и «Есть проблема» остаётся
+    assert alerts(limit) == [
+        "Переносить больше нельзя: нажмите «Да, всё хорошо» или «Есть проблема»."
+    ]

@@ -8,16 +8,16 @@ payload: коды превращаются в слова каталога, да�
 (`job.invited`, 5.6) — «Посмотреть заявку» и «Откликнуться: «…»» на каждый шаблон получателя:
 нажатие обрабатывает бот модуля jobs (platform/telegram/callbacks.py). У «Работа выполнена?»
 (`deal.completion_prompt`, 6.1b; после отметки второй стороны — «Алексей: работа «…» выполнена»,
-B2) — callback «Да, выполнено» (бот deals) и web_app «Есть проблема» сразу на спор S52 (`p_`,
-6.1c); у «Договорились?» (`deal.proposed`, 6.3b) — callback «Подтвердить» и «Отклонить» (бот
-deals) и web_app «Посмотреть условия». Спор (6.1c): `dispute.opened` — «Ответить» на S52,
-`dispute.resolved` — «Посмотреть решение». Подписки на заявки (5.7): `job.matched` — карточка B1
-(название жирным, бюджет, район и расстояние, когда, места и подписка) с «Открыть заявку»,
-«Откликнуться шаблоном «…»» на каждый шаблон получателя, «Не подходит» и «Пауза подписки» (их
-обрабатывает бот jobs); закрытой заявке кнопки гасятся (`retired_buttons`). Бюджет и время B1 —
-те же строки, что в карточке «Поделиться» (platform/i18n/jobs.py). `job.digest` — подборка по
-подпискам с «Открыть ленту», `profile.stale_reminder` — «Включить «Доступен сегодня»» (S38) и
-«Обновить профиль» (S33).
+B2) — callback «Да, выполнено», «Ещё нет» (пока перенос возможен; бот deals) и web_app «Есть
+проблема» сразу на спор S52 (`p_`, 6.1c); у «Договорились?» (`deal.proposed`, 6.3b) — callback
+«Подтвердить» и «Отклонить» (бот deals) и web_app «Посмотреть условия». Спор (6.1c):
+`dispute.opened` — «Ответить» на S52, `dispute.resolved` — «Посмотреть решение». Подписки на
+заявки (5.7): `job.matched` — карточка B1 (название жирным, бюджет, район и расстояние, когда,
+места и подписка) с «Открыть заявку», «Откликнуться шаблоном «…»» на каждый шаблон получателя,
+«Не подходит» и «Пауза подписки» (их обрабатывает бот jobs); закрытой заявке кнопки гасятся
+(`retired_buttons`). Бюджет и время B1 — те же строки, что в карточке «Поделиться»
+(platform/i18n/jobs.py). `job.digest` — подборка по подпискам с «Открыть ленту»,
+`profile.stale_reminder` — «Включить «Доступен сегодня»» (S38) и «Обновить профиль» (S33).
 
 У срока заявки, кроме callback-кнопок, — «Открыть заявку»; у «Выбрали другого» и «Заявка закрыта
 без выбора» — «Мои отклики» (S17), у «Заявка опубликована» и «Заявка снова открыта» — «Открыть
@@ -814,8 +814,10 @@ class GettextNotificationRenderer:
     def _completion_buttons(
         self, params: Mapping[str, str], link: str | None, locale: Locale
     ) -> tuple[ButtonLine, ...]:
-        """Один ряд (B2): «Да, всё хорошо» — отметка в сделке прямо из чата (бот deals); «Есть
-        проблема» — сразу спор S52 в Mini App (`p_`, 6.1c), без лишнего шага через сделку."""
+        """B2: «Да, всё хорошо» — отметка в сделке прямо из чата (бот deals); «Ещё нет» — спросить
+        снова через сутки (пока перенос возможен; после отметки второй стороны — нет: сделка и так
+        завершится через 3 дня); «Есть проблема» — сразу спор S52 в Mini App (`p_`, 6.1c). С
+        «Ещё нет» — «Да» и «Ещё нет» одним рядом, «Есть проблема» ниже; без неё — одним рядом."""
         buttons: list[Button] = []
         try:
             deal_id = UUID(params.get("deal_id", ""))
@@ -833,13 +835,23 @@ class GettextNotificationRenderer:
             if deal_id is not None
             else link
         )
-        if problem is not None and self._mini_app is not None:
-            buttons.append(
-                AppButton(
-                    text=self._t("notifications.deal_completion_prompt.problem", locale),
-                    url=mini_app_url(self._mini_app, problem),
-                )
+        problem_button = (
+            AppButton(
+                text=self._t("notifications.deal_completion_prompt.problem", locale),
+                url=mini_app_url(self._mini_app, problem),
             )
+            if problem is not None and self._mini_app is not None
+            else None
+        )
+        if deal_id is not None and params.get("snooze") == "true" and params.get("by") not in SIDES:
+            not_yet = CallbackButton(
+                text=self._t("notifications.deal_completion_prompt.not_yet", locale),
+                data=encode_callback(CallbackData(CallbackAction.DEAL_SNOOZE, deal_id)),
+            )
+            first: ButtonLine = (*buttons, not_yet)
+            return (first, problem_button) if problem_button is not None else (first,)
+        if problem_button is not None:
+            buttons.append(problem_button)
         return (tuple(buttons),) if buttons else ()
 
     def _chosen(self, params: Mapping[str, str], locale: Locale) -> RenderedText:

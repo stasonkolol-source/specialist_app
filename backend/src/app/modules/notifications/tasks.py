@@ -68,7 +68,8 @@ notifications стоит над контентными модулями (ARCHITE
   (сделка завершена или отменена) и причина: statement of reasons (6.1c).
 - `notifications.notify_deal_reminder` — DealReminderDue: обеим сторонам за 2 ч до времени.
 - `notifications.notify_deal_completion` — DealCompletionDue: «Работа выполнена?» с [Да, всё
-  хорошо] (кнопку обрабатывает бот deals) и [Есть проблема] тем, кто ещё не отметил.
+  хорошо], [Ещё нет] (пока перенос возможен; кнопки обрабатывает бот deals) и [Есть проблема] тем,
+  кто ещё не отметил; каждый перенос — свой вопрос (ключ с номером переноса).
 - `notifications.notify_deal_marked` — DealMarkedDone: то же второй стороне сразу после отметки
   первой: «Алексей: работа «…» выполнена. Всё в порядке?» — имя отметившего (B2, 7.3).
 - `notifications.notify_deal_completed` — DealCompleted: исполнителю «Сделка выполнена — клиент
@@ -1032,13 +1033,19 @@ async def notify_deal_completion(
         asked.append(event.client_id)
     if event.ask_performer:
         asked.append(event.performer_id)
+    # перенос «Ещё нет» — новый вопрос: свой ключ на каждый перенос (первый — прежний ключ)
+    round_ = f":{event.snoozes}" if event.snoozes else ""
     for user_id in asked:
         await notify(
             NotifyCommand(
                 user_id=user_id,
                 type=NotificationType.DEAL_COMPLETION_PROMPT,
-                dedupe_key=f"deal.completion_prompt:{event.deal_id}:{user_id}",
-                params={"title": deal.title, "deal_id": str(event.deal_id)},
+                dedupe_key=f"deal.completion_prompt:{event.deal_id}:{user_id}{round_}",
+                params={
+                    "title": deal.title,
+                    "deal_id": str(event.deal_id),
+                    "snooze": "true" if event.can_snooze else "false",
+                },
                 link=_deal_link(event.deal_id),
             )
         )

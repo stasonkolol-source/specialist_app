@@ -725,6 +725,31 @@ def test_completion_prompt_has_yes_and_problem_in_one_row(
     assert (problem.text, problem.url) == ("Есть проблема", f"{MINI_APP}?startapp={DISPUTE_LINK}")
 
 
+def test_completion_prompt_offers_not_yet_while_it_can_be_snoozed(
+    renderer: GettextNotificationRenderer,
+) -> None:
+    params = {"title": "Люстра", "deal_id": str(DEAL_ID)}
+    _, [row, problem] = renderer.telegram(
+        NotificationType.DEAL_COMPLETION_PROMPT, params | {"snooze": "true"}, DEAL_LINK, Locale.RU
+    )
+    assert isinstance(row, tuple)
+    yes, not_yet = row
+
+    assert [b.text for b in (yes, not_yet, problem)] == [
+        "Да, всё хорошо",
+        "Ещё нет",
+        "Есть проблема",
+    ]
+    assert isinstance(not_yet, CallbackButton)
+    assert parse_callback(not_yet.data) == CallbackData(CallbackAction.DEAL_SNOOZE, DEAL_ID)
+    # переносили уже три раза или вторая сторона отметила — «Ещё нет» не предлагаем
+    for extra in ({"snooze": "false"}, {"snooze": "true", "by": "performer", "name": "Ana"}):
+        _, buttons = renderer.telegram(
+            NotificationType.DEAL_COMPLETION_PROMPT, params | extra, DEAL_LINK, Locale.RU
+        )
+        assert [b.text for b in flat(buttons)] == ["Да, всё хорошо", "Есть проблема"]
+
+
 @pytest.mark.parametrize(
     ("locale", "text", "report"),
     [
@@ -859,7 +884,10 @@ def test_deal_texts_on_three_scripts(renderer: GettextNotificationRenderer, loca
             {"title": "Люстра", "by": "client", "reason": "other", "reopened": "true"},
         ),
         (NotificationType.DEAL_REMINDER, {"title": "Люстра", "at": "2026-10-03T17:00:00+00:00"}),
-        (NotificationType.DEAL_COMPLETION_PROMPT, {"title": "Люстра", "deal_id": str(DEAL_ID)}),
+        (
+            NotificationType.DEAL_COMPLETION_PROMPT,
+            {"title": "Люстра", "deal_id": str(DEAL_ID), "snooze": "true"},
+        ),
         (
             NotificationType.DEAL_COMPLETION_PROMPT,
             {"title": "Люстра", "deal_id": str(DEAL_ID), "by": "client", "name": ""},

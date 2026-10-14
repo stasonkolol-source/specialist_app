@@ -153,6 +153,15 @@ msgstr "Predlog je odbijen."
 msgid "bot.deals.proposal_closed"
 msgstr "Predlog više nije aktuelan: potvrđen je, odbijen ili je rok istekao."
 
+msgid "bot.deals.cancelled"
+msgstr "Dogovor je već otkazan."
+
+msgid "bot.deals.snoozed"
+msgstr "U redu, pitaćemo ponovo za jedan dan."
+
+msgid "bot.deals.snooze_limit"
+msgstr "Odlaganje više nije moguće: pritisnite „Da, sve je u redu“ ili „Postoji problem“."
+
 msgid "bot.deals.reported"
 msgstr "Prijava je poslata — moderator će proveriti nalog. Ne šaljite novac unapred: na „Sosedima“ se plaća posle posla."
 
@@ -1164,6 +1173,9 @@ msgstr "Da, sve je u redu"
 
 msgid "notifications.deal_completion_prompt.problem"
 msgstr "Postoji problem"
+
+msgid "notifications.deal_completion_prompt.not_yet"
+msgstr "Još ne"
 
 msgid "notifications.dispute_opened.title"
 msgstr "Problem sa dogovorom"

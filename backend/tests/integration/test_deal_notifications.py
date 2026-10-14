@@ -2,7 +2,8 @@
 выбрали» со ссылкой на сделку, остальным откликнувшимся — «Выбрали другого» со ссылкой на «Мои
 отклики», клиенту — «Вы выбрали …» с правилом оплаты и «Пожаловаться», второй стороне — отмена
 с причиной (клиенту — «заявка снова открыта» и кнопка к откликам S23, прежним кандидатам — «ваш
-отклик в силе»), «Работа выполнена?» — тем, кто ещё не отметил; исходы исполнителю в центре S42 —
+отклик в силе»), «Работа выполнена?» — тем, кто ещё не отметил, после «Ещё нет» — снова, новым
+вопросом; исходы исполнителю в центре S42 —
 «Клиент отклонил», «Сделка выполнена» (UX-аудит №11). Подписчики выполняются из очереди. Данные
 коммитятся.
 """
@@ -356,3 +357,39 @@ async def test_completion_prompt_asks_who_has_not_marked(
     assert [
         n for n in await world.notifications(performer) if n[0] == "deal.completion_prompt"
     ] == []  # исполнитель уже отметил
+
+
+async def test_not_yet_brings_the_question_back_as_a_new_one(
+    world: World, worker: AsyncContainer
+) -> None:
+    """«Ещё нет»: через сутки — снова «Работа выполнена?», новым уведомлением (свой ключ на
+    перенос); после третьего переноса — без «Ещё нет»."""
+    client, performer = await world.user(), await world.user()
+    job_id = await world.job(client)
+    accepted = await world.post(
+        client, f"/responses/{await world.response(performer, job_id)}/accept"
+    )
+    deal_id = UUID(accepted["deal_id"])
+    await world.execute(
+        "UPDATE deals.deals SET agreed_at = now() - interval '25 hours' WHERE id = :id", id=deal_id
+    )
+
+    async def ask() -> None:
+        async with worker() as request:
+            await (await request.get(SweepDeals))(SweepDealsCommand(sweep=DealSweep.PROMPT))
+        task = "notifications.notify_deal_completion"
+        assert await run_queued(worker, task, user_id=client, by="client_id") == 1
+
+    await ask()
+    for snoozes in (1, 2, 3):
+        await world.execute(
+            "UPDATE deals.deals SET completion_snoozes = :n, completion_prompted_at = NULL,"
+            " completion_snoozed_until = now() - interval '1 minute' WHERE id = :id",
+            n=snoozes,
+            id=deal_id,
+        )
+        await ask()
+
+    notices = await world.notifications(client)
+    prompts = [payload for kind, payload in notices if kind == "deal.completion_prompt"]
+    assert [p["params"]["snooze"] for p in prompts] == ["true", "true", "true", "false"]
