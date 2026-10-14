@@ -41,6 +41,7 @@ from app.platform.contracts.events.jobs import (
     JobExpired,
     JobExpiring,
     JobPublished,
+    JobReopened,
     JobSubmitted,
     JobUpdated,
     ResponseDeclined,
@@ -700,20 +701,23 @@ class Job(VersionedAggregate):
         self, response_id: ResponseId, *, by_performer: bool, now: datetime
     ) -> bool:
         """Сделку по выбранному отклику отменили (§7.9): заявка снова «опубликована», прежние
-        кандидаты («не выбран») — «просмотрен», выбранный — «отозван» исполнителем или
-        «отклонён»; места — по активным откликам. Срок вышел, пока шла сделка, — новый срок.
+        кандидаты («не выбран») — «просмотрен» (JobReopened: им — «ваш отклик в силе»),
+        выбранный — «отозван» исполнителем или «отклонён»; места — по активным откликам. Срок
+        вышел, пока шла сделка, — новый срок.
         Заявка уже не «в работе» по этому отклику — ничего, False."""
         if self.status is not JobStatus.ASSIGNED or self.selected_response_id != response_id:
             return False
         chosen = self._find_response(response_id)
         if chosen is not None and chosen.status is ResponseStatus.ACCEPTED:
             chosen.deal_cancelled(by_performer=by_performer, now=now)
+        reconsidered: list[UserId] = []
         for response in self.responses:
             if (
                 response.status is ResponseStatus.NOT_SELECTED
                 and response.review is not ResponseReview.BLOCKED
             ):
                 response.reconsider(now=now)
+                reconsidered.append(response.performer_id)
         self.responses_count = sum(1 for response in self.responses if response.is_active)
         self.selected_response_id = None
         self._move(
@@ -722,6 +726,15 @@ class Job(VersionedAggregate):
         if self.expires_at is None or self.expires_at <= now:
             self.expires_at, self.expiry_reminded_at = lifetime(self.content.urgency, now), None
         self._publish_event(now, republished=True)
+        self._record(
+            JobReopened(
+                job_id=self.id,
+                client_id=self.client_id,
+                response_id=response_id,
+                performer_ids=tuple(reconsidered),
+                occurred_at=now,
+            )
+        )
         return True
 
     def complete_after_deal(self, response_id: ResponseId, *, now: datetime) -> bool:

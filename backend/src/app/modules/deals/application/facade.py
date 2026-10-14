@@ -271,6 +271,8 @@ def _completion_due(deal: DealView) -> datetime | None:
     главная кнопка, раньше — «Написать» (UX_GUIDANCE №2). Не идёт — None."""
     if deal.status is not DealStatus.AGREED:
         return None
+    if deal.completion_snoozed_until is not None:  # «Ещё нет» — спросим снова тогда
+        return deal.completion_snoozed_until
     if deal.scheduled_at is not None:
         return deal.scheduled_at + PROMPT_DELAY
     return deal.agreed_at + PROMPT_WITHOUT_TIME if deal.agreed_at is not None else None

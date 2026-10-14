@@ -56,6 +56,7 @@ from app.modules.moderation.application.use_cases.record_rate_limit_signals impo
 from app.modules.moderation.application.use_cases.record_reregistration import (
     RecordReregistration,
 )
+from app.modules.moderation.application.use_cases.report_no_show import ReportNoShow
 from app.modules.moderation.application.use_cases.resolve_dispute import ResolveDispute
 from app.modules.moderation.application.use_cases.take_case import EscalateCase, TakeCase
 from app.modules.moderation.application.use_cases.track_dispute import TrackDispute
@@ -224,6 +225,7 @@ class ModerationProvider(Provider):
     record_rate_limit_signals = provide(RecordRateLimitSignals)
     reports = provide(SqlReportRepository, provides=ReportRepository)
     create_report = provide(CreateReport)
+    report_no_show = provide(ReportNoShow)
     file_appeal = provide(FileAppeal)
     post_case_card = provide(PostCaseCard)
 

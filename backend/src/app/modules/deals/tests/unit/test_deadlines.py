@@ -1,7 +1,8 @@
 """Сроки сделки (DEVELOPMENT_PLAN 6.1b; ARCHITECTURE §12.3): напоминание за 2 ч до времени,
 «Работа выполнена?» через 3 ч после него (без времени — через сутки после договорённости),
 автозавершение через 72 ч после отметки одной стороны, истечение «Договорились» за 72 ч.
-Каждое — один раз и только у идущей сделки."""
+Каждое — один раз и только у идущей сделки. «Ещё нет» переносит вопрос на сутки — не больше трёх
+раз."""
 
 from datetime import UTC, datetime, timedelta
 from uuid import UUID
@@ -9,12 +10,14 @@ from uuid import UUID
 import pytest
 
 from app.modules.deals.domain.deal import (
+    MAX_COMPLETION_SNOOZES,
     Deal,
     DealCancelReason,
     DealPriceType,
     DealStatus,
     DealTerms,
 )
+from app.modules.deals.errors import DealNotActiveError, DealNotFoundError
 from app.platform.contracts.events.deals import (
     DealCancelled,
     DealCompleted,
@@ -140,3 +143,36 @@ def test_finished_deal_has_no_deadlines() -> None:
     assert not work.remind(now=NOW)
     assert not work.prompt_completion(now=later)
     assert not work.auto_complete(now=later)
+
+
+def test_not_yet_asks_again_a_day_later_at_most_three_times() -> None:
+    work = deal(at=None)
+    now = NOW + timedelta(hours=24)
+    assert work.prompt_completion(now=now)
+    [first] = work.pull_events()
+    assert isinstance(first, DealCompletionDue)
+    assert (first.snoozes, first.can_snooze) == (0, True)
+
+    for snooze in range(1, MAX_COMPLETION_SNOOZES + 1):
+        assert work.snooze_completion(actor_id=CLIENT, now=now)
+        assert work.snooze_completion(actor_id=PERFORMER, now=now)  # тот же перенос
+        assert work.completion_due_at == now + timedelta(hours=24)
+        assert not work.prompt_completion(now=now + timedelta(hours=23))
+        now += timedelta(hours=24)
+        assert work.prompt_completion(now=now)
+        [event] = work.pull_events()
+        assert isinstance(event, DealCompletionDue)
+        assert (event.snoozes, event.can_snooze) == (snooze, snooze < MAX_COMPLETION_SNOOZES)
+
+    assert not work.snooze_completion(actor_id=CLIENT, now=now)  # переносов уже три
+    assert work.completion_snoozes == MAX_COMPLETION_SNOOZES
+    assert work.completion_prompted_at == now  # вопрос остаётся
+
+
+def test_not_yet_only_for_parties_of_a_running_deal() -> None:
+    work = deal(at=None)
+    with pytest.raises(DealNotFoundError):
+        work.snooze_completion(actor_id=UserId(new_id()), now=NOW)
+    work.cancel(actor_id=CLIENT, reason=DealCancelReason.NO_CONTACT, now=NOW)
+    with pytest.raises(DealNotActiveError):
+        work.snooze_completion(actor_id=CLIENT, now=NOW)

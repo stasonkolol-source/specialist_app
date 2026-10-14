@@ -152,6 +152,60 @@ msgstr "Предлог је одбијен."
 msgid "bot.deals.proposal_closed"
 msgstr "Предлог више није актуелан: потврђен је, одбијен или је рок истекао."
 
+msgid "bot.deals.cancelled"
+msgstr "Договор је већ отказан."
+
+msgid "bot.deals.snoozed"
+msgstr "У реду, питаћемо поново за један дан."
+
+msgid "bot.deals.snooze_limit"
+msgstr "Одлагање више није могуће: притисните „Да, све је у реду“ или „Постоји проблем“."
+
+msgid "bot.deals.problem.question"
+msgstr "Шта се десило са послом „{title}“?"
+
+msgid "bot.deals.problem.no_show_client"
+msgstr "Није дошао / нема везе → откажи"
+
+msgid "bot.deals.problem.no_show_performer"
+msgstr "Клијент се не јавља → откажи"
+
+msgid "bot.deals.problem.no_show_client_dispute"
+msgstr "Није дошао / нема везе → спор"
+
+msgid "bot.deals.problem.no_show_performer_dispute"
+msgstr "Клијент се не јавља → спор"
+
+msgid "bot.deals.problem.prepayment"
+msgstr "Тражи аванс → пријави"
+
+msgid "bot.deals.problem.other_client"
+msgstr "Лоше урађено, штета → спор"
+
+msgid "bot.deals.problem.other_performer"
+msgstr "Други проблем → спор"
+
+msgid "bot.deals.problem.fine"
+msgstr "Све је у реду, посао је завршен"
+
+msgid "bot.deals.problem.dispute"
+msgstr "Отвори спор"
+
+msgid "bot.deals.problem.marked"
+msgstr "Посао је већ означен као завршен — договор се не може отказати. Отворите спор: подршка ће размотрити."
+
+msgid "bot.deals.problem.reopened"
+msgstr "Договор „{title}“ је отказан. Захтев је поново отворен — изаберите другог извођача међу понудама."
+
+msgid "bot.deals.problem.responses"
+msgstr "Изабери међу понудама"
+
+msgid "bot.deals.problem.cancelled"
+msgstr "Договор „{title}“ је отказан — друга страна ће добити обавештење."
+
+msgid "bot.deals.reported"
+msgstr "Пријава је послата — модератор ће проверити налог. Не шаљите новац унапред: на „Соседима“ се плаћа после посла."
+
 msgid "bot.help.text"
 msgstr "<b>Како функционише</b>\n• Опишите задатак — мајстори у близини ће се јавити са ценом. Или изаберите стручњака по утисцима.\n• Договарајте се у чету апликације „Соседи“: контакти — након договора.\n• Плаћање — после посла, лично. „Соседи“ не примају новац — нема коме да се плати унапред.\n\n<b>Безбедност</b>\n• Аванс се не тражи и не даје. Материјал — по рачуну при сусрету. Кодове из СМС порука никоме не говорите.\n• Траже аванс или је профил сумњив — пријавите директно у апликацији.\n\n/terms — правила платформе\n/privacy — политика приватности\n/language — језик"
 
@@ -942,6 +996,24 @@ msgstr "Изабран је други извођач"
 msgid "notifications.response_not_selected.body"
 msgstr "Захтев „{title}“. Хвала на понуди — у листи има других захтева у близини."
 
+msgid "notifications.response_chosen.title"
+msgstr "Изабрали сте: {name}"
+
+msgid "notifications.response_chosen.title_no_name"
+msgstr "Изабрали сте извођача"
+
+msgid "notifications.response_chosen.body"
+msgstr "Захтев „{title}“. Контакти — у договору. Плаћање — после посла, лично; ако траже аванс — притисните „Пријави“ испод поруке."
+
+msgid "notifications.response_chosen.report"
+msgstr "Пријави"
+
+msgid "notifications.response_reopened.title"
+msgstr "Захтев је поново отворен"
+
+msgid "notifications.response_reopened.body"
+msgstr "Клијент поново бира извођача за захтев „{title}“ — ваша понуда је и даље важећа."
+
 msgid "notifications.response_job_closed.title"
 msgstr "Захтев је затворен без избора"
 
@@ -1056,6 +1128,9 @@ msgstr "Отвори разговор"
 msgid "notifications.deal_cancelled.reopened"
 msgstr "Захтев је поново отворен, претходне понуде су враћене."
 
+msgid "notifications.deal_cancelled.responses"
+msgstr "Изабери међу понудама"
+
 msgid "notifications.deal_completed.title"
 msgstr "Договор је завршен"
 
@@ -1139,6 +1214,9 @@ msgstr "Да, све је у реду"
 
 msgid "notifications.deal_completion_prompt.problem"
 msgstr "Постоји проблем"
+
+msgid "notifications.deal_completion_prompt.not_yet"
+msgstr "Још не"
 
 msgid "notifications.dispute_opened.title"
 msgstr "Проблем са договором"
