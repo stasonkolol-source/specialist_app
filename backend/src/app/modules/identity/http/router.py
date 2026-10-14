@@ -186,7 +186,8 @@ async def verify_phone(
     """«Подтвердить телефон» (S33, S32c, S43): подписанный ответ `requestContact` → бейдж
     «Телефон подтверждён» и уровень доверия 1. Номер нигде не показывается и в ответе его нет.
     Повтор с тем же номером — 200 без изменений; номер в другом аккаунте — 409 `phone_taken`;
-    подпись не та, устарела или контакт чужой — 422 `invalid_phone_contact`."""
+    подпись не та, устарела или контакт чужой — 422 `invalid_phone_contact`. Флаг
+    `identity.phone_verification` выключен — 404 `phone_verification_unavailable`."""
     await verify(VerifyPhoneCommand(actor_id=principal.user_id, contact=body.contact))
     return await _me(access, principal.user_id, response)
 

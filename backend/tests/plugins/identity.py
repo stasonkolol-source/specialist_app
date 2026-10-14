@@ -6,14 +6,20 @@ API-тесты входят так же, как Mini App: подписанный
 """
 
 import json
+from collections.abc import AsyncIterator
+from contextlib import asynccontextmanager
 from datetime import datetime
 from urllib.parse import urlencode
 from uuid import UUID
 
 import httpx
-from sqlalchemy import text
-from sqlalchemy.ext.asyncio import AsyncSession
+from dishka import AsyncContainer
+from sqlalchemy import text, update
+from sqlalchemy.ext.asyncio import AsyncEngine, AsyncSession
 
+from app.modules.identity.application.use_cases.verify_phone import PHONE_VERIFICATION_FLAG
+from app.platform.config.cache import ClientConfigCache
+from app.platform.db.platform_tables import feature_flags
 from app.platform.kernel.clock import SystemClock
 from app.platform.kernel.ids import UserId, new_id
 from app.platform.security.initdata import sign
@@ -62,6 +68,31 @@ def signed_contact(settings: Settings, telegram_id: int, phone: str) -> str:
     return urlencode(
         fields | {"hash": sign(fields, settings.telegram.bot_token.get_secret_value())}
     )
+
+
+@asynccontextmanager
+async def phone_verification(
+    migrator: AsyncEngine, *containers: AsyncContainer
+) -> AsyncIterator[None]:
+    """Флаг `identity.phone_verification` включён на время блока (по умолчанию выключен до
+    редакции 2 политики, platform_0008). Кэш флагов уже созданных контейнеров сбрасывается —
+    правка видна сразу; новые контейнеры прочитают её сами."""
+
+    async def switch(enabled: bool) -> None:
+        async with migrator.begin() as conn:
+            await conn.execute(
+                update(feature_flags)
+                .where(feature_flags.c.key == PHONE_VERIFICATION_FLAG)
+                .values(enabled=enabled)
+            )
+        for container in containers:
+            (await container.get(ClientConfigCache)).invalidate()
+
+    await switch(True)
+    try:
+        yield
+    finally:
+        await switch(False)
 
 
 async def login(api: httpx.AsyncClient, init_data: str) -> dict[str, object]:

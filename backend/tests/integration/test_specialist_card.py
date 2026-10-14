@@ -32,7 +32,12 @@ from app.platform.db.port import UnitOfWork
 from app.platform.kernel.ids import MediaId, new_id
 from app.platform.settings import Settings
 from tests.plugins.http import HttpApp, http_app
-from tests.plugins.identity import new_phone, new_telegram_id, signed_contact
+from tests.plugins.identity import (
+    new_phone,
+    new_telegram_id,
+    phone_verification,
+    signed_contact,
+)
 from tests.plugins.round_trips import round_trips
 from tests.plugins.search import NAME, Specialist
 
@@ -125,7 +130,7 @@ async def test_card_comes_in_one_request_with_etag(web: HttpApp) -> None:
 
 
 async def test_verified_phone_puts_the_badge_on_the_card(
-    web: HttpApp, storage_settings: Settings
+    web: HttpApp, storage_settings: Settings, migrator_engine: AsyncEngine
 ) -> None:
     """«Телефон подтверждён» (POST /me/phone) — бейдж `phone_verified`; номера в карточке нет."""
     specialist = Specialist(web.container)
@@ -137,13 +142,14 @@ async def test_verified_phone_puts_the_badge_on_the_card(
         user=specialist.user_id,
         subject=str(telegram_id),
     )
-    await specialist.call(
-        VerifyPhone,
-        VerifyPhoneCommand(
-            actor_id=specialist.user_id,
-            contact=signed_contact(storage_settings, telegram_id, phone),
-        ),
-    )
+    async with phone_verification(migrator_engine, web.container):
+        await specialist.call(
+            VerifyPhone,
+            VerifyPhoneCommand(
+                actor_id=specialist.user_id,
+                contact=signed_contact(storage_settings, telegram_id, phone),
+            ),
+        )
 
     response = await get(web, str(specialist.profile_id))
 

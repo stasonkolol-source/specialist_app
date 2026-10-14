@@ -2,8 +2,18 @@
 
 import httpx
 import pytest
-from tests.plugins.identity import new_phone, new_telegram_id, signed_contact, signed_init_data
+from sqlalchemy.ext.asyncio import AsyncEngine
+from tests.plugins.http import http_client
+from tests.plugins.identity import (
+    new_phone,
+    new_telegram_id,
+    phone_verification,
+    signed_contact,
+    signed_init_data,
+)
 
+from app.modules.identity.http.router import router
+from app.platform.kernel.ids import new_id
 from app.platform.settings import Settings
 
 from .conftest import InitData, bearer, login
@@ -72,39 +82,50 @@ async def test_invisible_name_is_rejected_by_domain(
 
 
 async def test_phone_verification_gives_the_badge_without_the_number(
-    api: httpx.AsyncClient, init_data: InitData, settings: Settings, telegram_id: int
+    api: httpx.AsyncClient,
+    init_data: InitData,
+    settings: Settings,
+    telegram_id: int,
+    migrator_engine: AsyncEngine,
 ) -> None:
-    """POST /me/phone (S33, S32c, S43): подписанный контакт → бейдж и уровень 1; номера в ответе
-    нет. Тот же номер у другого аккаунта — 409, чужой контакт — 422."""
+    """POST /me/phone (S33, S32c, S43): флаг выключен (до редакции 2 политики) — 404 и ничего не
+    пишется; включён — подписанный контакт → бейдж и уровень 1, номера в ответе нет. Тот же номер
+    у другого аккаунта — 409, чужой контакт — 422."""
     tokens = await login(api, init_data())
     phone = new_phone()
+    contact = {"contact": signed_contact(settings, telegram_id, phone)}
 
-    response = await api.post(
-        "/api/v1/me/phone",
-        headers=bearer(tokens),
-        json={"contact": signed_contact(settings, telegram_id, phone)},
-    )
+    off = await api.post("/api/v1/me/phone", headers=bearer(tokens), json=contact)
+    assert (off.status_code, off.json()["code"]) == (404, "phone_verification_unavailable")
+    assert (await api.get("/api/v1/me", headers=bearer(tokens))).json()["phone_verified"] is False
 
-    assert response.status_code == 200, response.text
-    assert (response.json()["phone_verified"], response.json()["trust_level"]) == (True, 1)
-    assert phone.removeprefix("+") not in response.text
-    me = await api.get("/api/v1/me", headers=bearer(tokens))
-    assert phone.removeprefix("+") not in me.text
+    ip = f"10.{new_id().int % 250}.{new_id().int % 250}.{new_id().int % 250}"  # лимиты /auth
+    async with (
+        phone_verification(migrator_engine),
+        http_client(settings, router, client_ip=ip) as on,
+    ):
+        response = await on.post("/api/v1/me/phone", headers=bearer(tokens), json=contact)
 
-    other_tg = new_telegram_id()
-    other = await login(api, signed_init_data(settings, other_tg))
-    taken = await api.post(
-        "/api/v1/me/phone",
-        headers=bearer(other),
-        json={"contact": signed_contact(settings, other_tg, phone)},
-    )
-    assert (taken.status_code, taken.json()["code"]) == (409, "phone_taken")
-    assert phone.removeprefix("+") not in taken.text
+        assert response.status_code == 200, response.text
+        assert (response.json()["phone_verified"], response.json()["trust_level"]) == (True, 1)
+        assert phone.removeprefix("+") not in response.text
+        me = await on.get("/api/v1/me", headers=bearer(tokens))
+        assert phone.removeprefix("+") not in me.text
 
-    foreign = await api.post(
-        "/api/v1/me/phone",
-        headers=bearer(other),
-        json={"contact": signed_contact(settings, telegram_id, new_phone())},
-    )
-    assert (foreign.status_code, foreign.json()["code"]) == (422, "invalid_phone_contact")
-    assert foreign.json()["reason"] == "not_own"
+        other_tg = new_telegram_id()
+        other = await login(on, signed_init_data(settings, other_tg))
+        taken = await on.post(
+            "/api/v1/me/phone",
+            headers=bearer(other),
+            json={"contact": signed_contact(settings, other_tg, phone)},
+        )
+        assert (taken.status_code, taken.json()["code"]) == (409, "phone_taken")
+        assert phone.removeprefix("+") not in taken.text
+
+        foreign = await on.post(
+            "/api/v1/me/phone",
+            headers=bearer(other),
+            json={"contact": signed_contact(settings, telegram_id, new_phone())},
+        )
+        assert (foreign.status_code, foreign.json()["code"]) == (422, "invalid_phone_contact")
+        assert foreign.json()["reason"] == "not_own"

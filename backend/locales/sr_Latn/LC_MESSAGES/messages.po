@@ -690,6 +690,9 @@ msgstr "Ovaj broj je već potvrđen na drugom nalogu u „Sosedima“: jedan bro
 msgid "errors.invalid_phone_contact"
 msgstr "Potvrda telefona nije uspela. Ponovo otvorite aplikaciju i pokušajte opet."
 
+msgid "errors.phone_verification_unavailable"
+msgstr "Potvrda telefona još nije dostupna."
+
 msgid "errors.review_not_found"
 msgstr "Utisak nije pronađen."
 

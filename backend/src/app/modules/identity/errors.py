@@ -106,6 +106,13 @@ class PhoneTakenError(ConflictError):
     code = "phone_taken"
 
 
+class PhoneVerificationUnavailableError(NotFoundError):
+    """Подтверждение телефона выключено флагом `identity.phone_verification`: его включают
+    вместе с редакцией политики конфиденциальности, где описана эта цель (редакция 2)."""
+
+    code = "phone_verification_unavailable"
+
+
 class InvalidPhoneContactError(DomainValidationError):
     """Контакт `requestContact` не принят (`reason`): подпись Telegram не сошлась (`signature`),
     устарела (`expired`), номер чужого аккаунта (`not_own`) или не номер E.164 (`phone`)."""

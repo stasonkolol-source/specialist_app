@@ -689,6 +689,9 @@ msgstr "Овај број је већ потврђен на другом нал�
 msgid "errors.invalid_phone_contact"
 msgstr "Потврда телефона није успела. Поново отворите апликацију и покушајте опет."
 
+msgid "errors.phone_verification_unavailable"
+msgstr "Потврда телефона још није доступна."
+
 msgid "errors.review_not_found"
 msgstr "Утисак није пронађен."
 

@@ -57,7 +57,12 @@ from app.modules.specialists.domain.profile import ProfileKind
 from app.platform.db.port import UnitOfWork
 from app.platform.kernel.ids import new_id
 from app.platform.settings import Settings
-from tests.plugins.identity import new_phone, new_telegram_id, signed_contact
+from tests.plugins.identity import (
+    new_phone,
+    new_telegram_id,
+    phone_verification,
+    signed_contact,
+)
 from tests.plugins.search import NAME, PRICE, Specialist
 
 pytestmark = pytest.mark.integration
@@ -116,7 +121,7 @@ async def test_published_profile_gets_a_ready_row(specialist: Specialist) -> Non
 
 
 async def test_verified_phone_shows_in_the_card_but_not_in_ranking(
-    specialist: Specialist, storage_settings: Settings
+    specialist: Specialist, storage_settings: Settings, migrator_engine: AsyncEngine
 ) -> None:
     """Бейдж «Телефон подтверждён» — в карточке выдачи; колонка `badges`, от которой зависят
     доверие в ранжировании и фильтр `verified`, остаётся пустой (ZZP ст. 28: порядок выдачи не
@@ -130,9 +135,10 @@ async def test_verified_phone_shows_in_the_card_but_not_in_ranking(
     )
     contact = signed_contact(storage_settings, telegram_id, new_phone())
 
-    await specialist.call(
-        VerifyPhone, VerifyPhoneCommand(actor_id=specialist.user_id, contact=contact)
-    )
+    async with phone_verification(migrator_engine, specialist.container):
+        await specialist.call(
+            VerifyPhone, VerifyPhoneCommand(actor_id=specialist.user_id, contact=contact)
+        )
     await specialist.handle("search.on_phone_verified")
 
     row = await specialist.row()

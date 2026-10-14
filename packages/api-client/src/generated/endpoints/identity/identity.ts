@@ -668,7 +668,8 @@ export const getIdentityVerifyPhoneUrl = () => {
  * «Подтвердить телефон» (S33, S32c, S43): подписанный ответ `requestContact` → бейдж
  * «Телефон подтверждён» и уровень доверия 1. Номер нигде не показывается и в ответе его нет.
  * Повтор с тем же номером — 200 без изменений; номер в другом аккаунте — 409 `phone_taken`;
- * подпись не та, устарела или контакт чужой — 422 `invalid_phone_contact`.
+ * подпись не та, устарела или контакт чужой — 422 `invalid_phone_contact`. Флаг
+ * `identity.phone_verification` выключен — 404 `phone_verification_unavailable`.
  * @summary Verify Phone
  */
 export const identityVerifyPhone = async (

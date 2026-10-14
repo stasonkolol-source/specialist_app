@@ -18,11 +18,16 @@ from app.modules.identity.application.use_cases.authenticate_telegram import (
     AuthenticateTelegramCommand,
 )
 from app.modules.identity.application.use_cases.verify_phone import (
+    PHONE_VERIFICATION_FLAG,
     VerifyPhone,
     VerifyPhoneCommand,
 )
 from app.modules.identity.domain.trust import TrustLevel
-from app.modules.identity.errors import InvalidPhoneContactError, PhoneTakenError
+from app.modules.identity.errors import (
+    InvalidPhoneContactError,
+    PhoneTakenError,
+    PhoneVerificationUnavailableError,
+)
 from app.modules.identity.infrastructure.contacts import TelegramPhoneContacts
 from app.modules.identity.infrastructure.models import UserRow
 from app.platform.contracts.events.identity import PhoneVerified
@@ -30,6 +35,7 @@ from app.platform.kernel.ids import UserId, new_id
 from app.platform.queue.dispatcher import EventRegistry
 from app.platform.queue.port import TaskRef
 from app.platform.security.initdata import InitDataVerifier, sign
+from app.platform.testing.config import FakeFeatureFlags
 from app.platform.testing.queue import queued_tasks
 
 from .conftest import Identity, telegram_profile
@@ -55,13 +61,15 @@ def contact(
     return urlencode(fields | {"hash": sign(fields, BOT_TOKEN)})
 
 
-def verify_phone(identity: Identity) -> VerifyPhone:
+def verify_phone(identity: Identity, *, enabled: bool = True) -> VerifyPhone:
     verifier = InitDataVerifier(SecretStr(BOT_TOKEN), identity.clock)
+    flags = FakeFeatureFlags(enabled={PHONE_VERIFICATION_FLAG} if enabled else set())
     return VerifyPhone(
         identity.uow,
         identity.users,
         TelegramPhoneContacts(verifier),
         TrustRecalculation(identity.query),
+        flags,
         identity.clock,
     )
 
@@ -104,6 +112,23 @@ async def test_own_contact_verifies_the_phone_and_lifts_trust(
     payloads = [t.payload for t in await queued_tasks(identity.session, ON_PHONE.name)]
     assert [p["user_id"] for p in payloads] == [str(user_id)]
     assert all(phone.removeprefix("+") not in json.dumps(p) for p in payloads)
+
+
+async def test_switched_off_verification_writes_nothing(
+    identity: Identity, events: EventRegistry
+) -> None:
+    """Флаг выключен (до редакции 2 политики) — 404 до проверки контакта, ничего не пишется."""
+    events.subscribe(PhoneVerified, ON_PHONE)
+    user_id, telegram_id = await registered(identity)
+    raw = contact(identity, telegram_id, a_phone())
+
+    with pytest.raises(PhoneVerificationUnavailableError):
+        await verify_phone(identity, enabled=False)(
+            VerifyPhoneCommand(actor_id=user_id, contact=raw)
+        )
+
+    assert await stored(identity, user_id) == (None, False, TrustLevel.NEW)
+    assert await queued_tasks(identity.session, ON_PHONE.name) == []
 
 
 async def test_number_of_another_account_is_taken(identity: Identity) -> None:
