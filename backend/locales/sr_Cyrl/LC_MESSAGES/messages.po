@@ -9,7 +9,7 @@ msgstr ""
 "Content-Transfer-Encoding: 8bit\n"
 
 msgid "bot.start.welcome"
-msgstr "Здраво, {name}! Ово су „Соседи“ — овде се налазе мајстори и помоћ у близини: поправке, лепота, чишћење, селидбе, часови. Притисните „Отвори“ да почнете."
+msgstr "Здраво, {name}! Ово су „Соседи“ — овде се налазе мајстори и помоћ у близини: поправке, лепота, чишћење, селидбе, часови. Тренутно радимо у Новом Саду. Притисните „Отвори“ да почнете."
 
 msgid "bot.start.welcome_back"
 msgstr "Добро дошли поново, {name}! Отворите апликацију „Соседи“ дугметом испод."
@@ -135,7 +135,7 @@ msgid "bot.deals.disputed"
 msgstr "За договор је отворен спор: одлуку ће донети подршка. Детаљи су у апликацији."
 
 msgid "bot.reviews.rated"
-msgstr "Хвала! Ваша оцена: {stars}. Утисак ће се појавити на картици извођача после провере."
+msgstr "Хвала! Ваша оцена: {stars}. Утисак ће се појавити на картици извођача."
 
 msgid "bot.reviews.exists"
 msgstr "Већ сте оставили утисак за овај договор."
@@ -1102,7 +1102,7 @@ msgid "notifications.review_request.title_first"
 msgstr "Оцените посао"
 
 msgid "notifications.review_request.body_first"
-msgstr "„{title}“, извођач — {performer}. Утисак ће се појавити на картици извођача после провере."
+msgstr "„{title}“, извођач — {performer}. Утисак ће се појавити на картици извођача и помоћи ће суседима да изаберу мајстора."
 
 msgid "notifications.review_request.title_reminder"
 msgstr "Оцените посао"

@@ -95,9 +95,7 @@ async def test_star_leaves_a_rating_once(harness: BotHarness) -> None:
     again = await harness.press(client, star(deal_id, 5))
     foreign = await harness.press(stranger, star(deal_id, 5))
 
-    assert edits(rated) == [
-        "Спасибо! Ваша оценка: ★★★★☆. Отзыв появится на карточке исполнителя после проверки."
-    ]
+    assert edits(rated) == ["Спасибо! Ваша оценка: ★★★★☆. Отзыв появится на карточке исполнителя."]
     assert edits(again) == ["Вы уже оставили отзыв по этой сделке."]
     assert edits(foreign) == []
     assert alerts(foreign) == ["Сделка не найдена."]
