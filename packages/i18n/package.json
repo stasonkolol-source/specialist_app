@@ -17,23 +17,23 @@
   },
   "dependencies": {
     "@sosed/domain": "workspace:*",
-    "i18next": "26.4.2",
-    "i18next-icu": "2.4.4",
+    "i18next": "26.5.7",
+    "i18next-icu": "2.6.1",
     "intl-messageformat": "11.2.15",
-    "react-i18next": "17.0.15"
+    "react-i18next": "17.1.5"
   },
   "peerDependencies": {
     "react": "^19.0.0"
   },
   "devDependencies": {
     "@sosed/config": "workspace:*",
-    "@types/node": "26.6.3",
+    "@types/node": "26.6.5",
     "@types/react": "19.3.0",
     "@types/react-dom": "19.3.0",
-    "eslint": "10.11.0",
-    "react": "19.3.0",
-    "react-dom": "19.3.0",
+    "eslint": "10.13.0",
+    "react": "19.3.1",
+    "react-dom": "19.3.1",
     "typescript": "6.0.3",
-    "vitest": "5.0.2"
+    "vitest": "5.0.5"
   }
 }
