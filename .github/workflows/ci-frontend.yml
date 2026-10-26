@@ -39,7 +39,7 @@ jobs:
     steps:
       - uses: actions/checkout@v7.0.1
 
-      - uses: actions/setup-node@v7.0.0
+      - uses: actions/setup-node@v7.1.0
         with:
           node-version: 24
 
@@ -115,7 +115,7 @@ jobs:
       - name: playwright
         run: pnpm -F ui-web e2e
 
-      - uses: actions/upload-artifact@v7.0.1
+      - uses: actions/upload-artifact@v7.0.2
         if: failure()
         with:
           name: ui-web-playwright-report
@@ -155,7 +155,7 @@ jobs:
       - name: playwright
         run: pnpm -F tma e2e --shard=${{ matrix.shard }}/4
 
-      - uses: actions/upload-artifact@v7.0.1
+      - uses: actions/upload-artifact@v7.0.2
         if: failure()
         with:
           name: tma-playwright-report-${{ matrix.shard }}

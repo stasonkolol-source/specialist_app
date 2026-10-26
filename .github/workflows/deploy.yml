@@ -181,7 +181,7 @@ jobs:
             echo "skip=true" >> "$GITHUB_OUTPUT"
           fi
 
-      - uses: actions/setup-node@v7.0.0
+      - uses: actions/setup-node@v7.1.0
         if: steps.guard.outputs.skip != 'true'
         with:
           node-version: 24
@@ -395,7 +395,7 @@ jobs:
             "$KAMAL_IMAGE" "${args[@]}" -d production -c infra/kamal/deploy.yml
 
       # Mini App того же sha — после backend: новый фронт не приходит раньше своего API
-      - uses: actions/setup-node@v7.0.0
+      - uses: actions/setup-node@v7.1.0
         if: env.ACTION == 'deploy'
         with:
           node-version: 24
